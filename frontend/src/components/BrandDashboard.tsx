@@ -1,37 +1,53 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, AlertTriangle, CheckCircle2, Search, Filter, ExternalLink } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 
 const BrandDashboard: React.FC = () => {
     const [violations, setViolations] = useState<any[]>([]);
+    const [stats, setStats] = useState({ scanned: 0, active: 0, cleaned: 0 });
     const [loading, setLoading] = useState(true);
 
-    // Mock data for PoC visualization while Supabase is being configured
+    const fetchData = async () => {
+        setLoading(true);
+
+        // 1. Fetch Violations with Product Info
+        const { data: violationsData, error: vError } = await supabase
+            .from('violations')
+            .select('*, products(*)')
+            .order('created_at', { ascending: false });
+
+        if (vError) console.error('Error fetching violations:', vError);
+
+        // 2. Fetch Stats
+        const { count: prodCount } = await supabase.from('products').select('*', { count: 'exact', head: true });
+        const { count: violCount } = await supabase.from('violations').select('*', { count: 'exact', head: true }).eq('status', 'PENDING');
+        const { count: cleanCount } = await supabase.from('violations').select('*', { count: 'exact', head: true }).eq('status', 'REPORTED');
+
+        if (violationsData) {
+            const formatted = violationsData.map(v => ({
+                id: v.id,
+                type: v.violation_type,
+                product: v.products?.title || 'Unknown Product',
+                seller: v.products?.seller_name || 'Generic Seller',
+                price: v.details?.actual_price || 0,
+                expected: v.details?.expected_min || 0,
+                status: v.status,
+                url: v.products?.url || '#'
+            }));
+            setViolations(formatted);
+        }
+
+        setStats({
+            scanned: prodCount || 0,
+            active: violCount || 0,
+            cleaned: cleanCount || 0
+        });
+
+        setLoading(false);
+    };
+
     useEffect(() => {
-        setTimeout(() => {
-            setViolations([
-                {
-                    id: '1',
-                    type: 'PRICE',
-                    product: 'iPhone 15 128GB',
-                    seller: 'ElectroWorld_BA',
-                    price: 950000,
-                    expected: 1100000,
-                    status: 'PENDING',
-                    url: 'https://articulo.mercadolibre.com.ar/MLA-123'
-                },
-                {
-                    id: '2',
-                    type: 'KEYWORD',
-                    product: 'iPhone 15 Case - Símil Original',
-                    seller: 'AccesoriosPremiumVIP',
-                    price: 25000,
-                    expected: 0,
-                    status: 'REPORTED',
-                    url: 'https://articulo.mercadolibre.com.ar/MLA-456'
-                }
-            ]);
-            setLoading(false);
-        }, 1000);
+        fetchData();
     }, []);
 
     return (
@@ -56,9 +72,9 @@ const BrandDashboard: React.FC = () => {
             <main className="max-w-7xl mx-auto p-6 space-y-8">
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <StatCard title="Total Scanned" value="1,240" delta="+12%" icon={<Search className="text-brand-400" />} />
-                    <StatCard title="Active Violations" value="86" delta="+5%" icon={<AlertTriangle className="text-warning" />} />
-                    <StatCard title="Reported & Cleaned" value="412" delta="+18%" icon={<CheckCircle2 className="text-success" />} />
+                    <StatCard title="Total Scanned" value={stats.scanned.toLocaleString()} delta="+100%" icon={<Search className="text-brand-400" />} />
+                    <StatCard title="Active Violations" value={stats.active.toString()} delta="Critical" icon={<AlertTriangle className="text-warning" />} />
+                    <StatCard title="Reported & Cleaned" value={stats.cleaned.toString()} delta="Success" icon={<CheckCircle2 className="text-success" />} />
                 </div>
 
                 {/* Violations Table */}
