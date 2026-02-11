@@ -22,6 +22,36 @@ const BrandDashboard: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [activeFilter, setActiveFilter] = useState<'ALL' | 'PRICE' | 'KEYWORD'>('ALL');
 
+    const exportToCSV = () => {
+        const headers = ["ID MeLi", "Producto", "Vendedor", "Ubicacion", "Status", "Tipo", "Precio", "MAP", "URL"];
+        const rows = violations.map(v => [
+            v.meli_id,
+            v.product,
+            v.seller,
+            v.seller_location,
+            v.status,
+            v.type,
+            v.price,
+            v.expected,
+            v.url
+        ]);
+
+        const csvContent = [
+            headers.join(","),
+            ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
+        ].join("\n");
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `brand_protection_report_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     const fetchData = async () => {
         setLoading(true);
         try {
@@ -86,14 +116,23 @@ const BrandDashboard: React.FC = () => {
                             <span className="text-[10px] text-brand-400 font-bold uppercase tracking-widest">MercadoLibre Arg PoC</span>
                         </div>
                     </div>
-                    <button
-                        onClick={fetchData}
-                        disabled={loading}
-                        className="group relative flex items-center gap-2 bg-white/5 hover:bg-white/10 px-5 py-2.5 rounded-full border border-white/10 transition-all active:scale-95 disabled:opacity-50"
-                    >
-                        {loading ? <Search className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4 text-brand-400" />}
-                        <span className="text-sm font-semibold">Refresh Insights</span>
-                    </button>
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={exportToCSV}
+                            className="flex items-center gap-2 bg-brand-500/10 hover:bg-brand-500/20 text-brand-400 px-5 py-2.5 rounded-full border border-brand-500/30 transition-all active:scale-95"
+                        >
+                            <ExternalLink className="w-4 h-4" />
+                            <span className="text-sm font-semibold">Download Report</span>
+                        </button>
+                        <button
+                            onClick={fetchData}
+                            disabled={loading}
+                            className="group relative flex items-center gap-2 bg-white/5 hover:bg-white/10 px-5 py-2.5 rounded-full border border-white/10 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            {loading ? <Search className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4 text-brand-400" />}
+                            <span className="text-sm font-semibold">Refresh Insights</span>
+                        </button>
+                    </div>
                 </div>
             </nav>
 
