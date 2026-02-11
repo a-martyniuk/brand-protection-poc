@@ -1,6 +1,5 @@
-```javascript
 import React, { useState, useEffect } from 'react';
-import { Shield, AlertTriangle, CheckCircle2, Search, Filter, ExternalLink } from 'lucide-react';
+import { Shield, AlertTriangle, CheckCircle2, Search, ExternalLink, MapPin, CheckCircle } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 interface Violation {
@@ -9,6 +8,8 @@ interface Violation {
     type: 'PRICE' | 'KEYWORD' | string;
     product: string;
     seller: string;
+    seller_location?: string;
+    is_authorized?: boolean;
     price: number;
     expected: number;
     status: string;
@@ -42,6 +43,8 @@ const BrandDashboard: React.FC = () => {
                     type: v.violation_type,
                     product: v.products?.title || 'Unknown Product',
                     seller: v.products?.seller_name || 'Generic Seller',
+                    seller_location: v.products?.seller_location || 'N/A',
+                    is_authorized: v.products?.is_authorized || false,
                     price: v.details?.actual_price || 0,
                     expected: v.details?.expected_min || 0,
                     status: v.status,
@@ -138,19 +141,19 @@ const BrandDashboard: React.FC = () => {
                             <div className="flex bg-slate-900 border border-white/5 rounded-lg p-1">
                                 <button
                                     onClick={() => setActiveFilter('ALL')}
-                                    className={`px - 3 py - 1.5 text - xs font - semibold rounded transition - all ${ activeFilter === 'ALL' ? 'bg-brand-500 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300' } `}
+                                    className={`px-3 py-1.5 text-xs font-semibold rounded transition-all ${activeFilter === 'ALL' ? 'bg-brand-500 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
                                 >
                                     All
                                 </button>
                                 <button
                                     onClick={() => setActiveFilter('PRICE')}
-                                    className={`px - 3 py - 1.5 text - xs font - semibold rounded transition - all ${ activeFilter === 'PRICE' ? 'bg-brand-500 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300' } `}
+                                    className={`px-3 py-1.5 text-xs font-semibold rounded transition-all ${activeFilter === 'PRICE' ? 'bg-brand-500 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
                                 >
                                     MAP Issues
                                 </button>
                                 <button
                                     onClick={() => setActiveFilter('KEYWORD')}
-                                    className={`px - 3 py - 1.5 text - xs font - semibold rounded transition - all ${ activeFilter === 'KEYWORD' ? 'bg-brand-500 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300' } `}
+                                    className={`px-3 py-1.5 text-xs font-semibold rounded transition-all ${activeFilter === 'KEYWORD' ? 'bg-brand-500 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
                                 >
                                     Keywords
                                 </button>
@@ -188,7 +191,7 @@ const StatCard = ({ title, value, label, icon, variant = 'default' }: any) => {
     }[variant as 'default' | 'warning' | 'success'];
 
     return (
-        <div className={`bg - slate - 900 / 40 border ${ borderClass } p - 8 rounded - [2rem] backdrop - blur - sm hover: border - white / 10 transition - all group relative overflow - hidden`}>
+        <div className={`bg-slate-900/40 border ${borderClass} p-8 rounded-[2rem] backdrop-blur-sm hover:border-white/10 transition-all group relative overflow-hidden`}>
             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                 {React.cloneElement(icon as React.ReactElement, { size: 100 })}
             </div>
@@ -208,36 +211,48 @@ const StatCard = ({ title, value, label, icon, variant = 'default' }: any) => {
 
 const ViolationCard = ({ data }: { data: Violation }) => (
     <div className="bg-slate-900/60 border border-white/5 p-5 rounded-2xl flex items-center gap-6 hover:bg-slate-800/40 hover:border-white/10 transition-all group">
-        <div className={`w - 12 h - 12 rounded - xl flex items - center justify - center border flex - shrink - 0 ${
-    data.type === 'PRICE' ? 'bg-rose-500/10 border-rose-500/20' : 'bg-brand-500/10 border-brand-500/20'
-} `}>
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center border flex-shrink-0 ${data.type === 'PRICE' ? 'bg-rose-500/10 border-rose-500/20' : 'bg-brand-500/10 border-brand-500/20'
+            }`}>
             {data.type === 'PRICE' ? <AlertTriangle className="text-rose-500 w-6 h-6" /> : <Search className="text-brand-400 w-6 h-6" />}
         </div>
 
         <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 text-[10px] font-bold uppercase tracking-widest">
-                <span className={`px - 2 py - 0.5 rounded - full ${
-    data.status === 'PENDING' ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'
-} `}>
+                <span className={`px-2 py-0.5 rounded-full ${data.status === 'PENDING' ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'
+                    }`}>
                     {data.status}
                 </span>
                 <span className="text-slate-600 bg-white/5 px-2 py-0.5 rounded-full border border-white/5">{data.meli_id}</span>
-                <span className="text-slate-500">Seller: {data.seller}</span>
+                {data.is_authorized ? (
+                    <span className="flex items-center gap-1 text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                        <CheckCircle className="w-3 h-3" /> Autorizado
+                    </span>
+                ) : (
+                    <span className="text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">
+                        No Autorizado
+                    </span>
+                )}
             </div>
-            <a
-                href={data.url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-white font-bold truncate pr-4 block hover:text-brand-400 transition-colors"
-            >
-                {data.product}
-            </a>
+            <div className="flex items-center gap-2 mb-1">
+                <a
+                    href={data.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-white font-bold truncate hover:text-brand-400 transition-colors"
+                >
+                    {data.product}
+                </a>
+            </div>
+            <div className="flex items-center gap-4 text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
+                <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {data.seller_location}</span>
+                <span>Seller: {data.seller}</span>
+            </div>
         </div>
 
         <div className="flex items-center gap-12 pr-4">
             <div className="flex flex-col items-end">
                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Violation</span>
-                <span className={`text - sm font - bold ${ data.type === 'PRICE' ? 'text-rose-500' : 'text-brand-400' } `}>
+                <span className={`text-sm font-bold ${data.type === 'PRICE' ? 'text-rose-500' : 'text-brand-400'}`}>
                     {data.type === 'PRICE' ? 'Market Price below MAP' : 'Prohibited Keywords'}
                 </span>
             </div>
@@ -263,4 +278,3 @@ const ViolationCard = ({ data }: { data: Violation }) => (
 );
 
 export default BrandDashboard;
-```

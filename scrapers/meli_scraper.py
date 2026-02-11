@@ -42,16 +42,16 @@ class MeliScraper:
                                 const imgEl = item.querySelector('.ui-search-result-image__element') || 
                                               item.querySelector('.poly-component__picture') ||
                                               item.querySelector('img');
-                                const sellerEl = item.querySelector('.ui-search-item__group__element--seller') ||
-                                                 item.querySelector('.poly-component__seller') ||
-                                                 item.querySelector('.ui-search-official-store-item__link');
+                                const locationEl = item.querySelector('.ui-search-item__location') ||
+                                                   item.querySelector('.poly-component__location');
 
                                 return {
                                     title: titleEl ? titleEl.innerText : 'N/A',
                                     price_str: priceEl ? priceEl.innerText : '0',
                                     url: linkEl ? linkEl.href : 'N/A',
                                     thumbnail: imgEl ? imgEl.src : null,
-                                    seller_name: sellerEl ? sellerEl.innerText : 'Generic Seller'
+                                    seller_name: sellerEl ? sellerEl.innerText : 'Generic Seller',
+                                    seller_location: locationEl ? locationEl.innerText : 'Location N/A'
                                 };
                             });
                         }
@@ -78,7 +78,8 @@ class MeliScraper:
                                 "price": price_val,
                                 "url": link,
                                 "thumbnail": p.get("thumbnail"),
-                                "seller_name": p.get("seller_name")
+                                "seller_name": p.get("seller_name"),
+                                "seller_location": p.get("seller_location")
                             })
                         except Exception as e:
                             pass

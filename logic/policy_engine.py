@@ -1,11 +1,13 @@
 import json
 
 class PolicyEngine:
-    def __init__(self, policies):
+    def __init__(self, policies, authorized_sellers=None):
         """
         :param policies: List of policy dictionaries from Supabase
+        :param authorized_sellers: List of strings (seller names or IDs)
         """
         self.policies = policies
+        self.authorized_sellers = [s.lower() for s in (authorized_sellers or [])]
 
     def evaluate_product(self, product):
         """
@@ -14,7 +16,18 @@ class PolicyEngine:
         :return: List of detected violations
         """
         violations = []
+        is_authorized = product.get("seller_name", "").lower() in self.authorized_sellers
         
+        # 0. Authorization Violation (Whitelist)
+        if not is_authorized:
+            violations.append({
+                "violation_type": "UNAUTHORIZED_SELLER",
+                "details": {
+                    "seller": product.get("seller_name"),
+                    "location": product.get("seller_location")
+                }
+            })
+
         for policy in self.policies:
             # Simple matching by keyword in title for PoC
             if policy["product_name"].lower() in product["title"].lower():
