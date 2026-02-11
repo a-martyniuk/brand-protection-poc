@@ -9,41 +9,41 @@ const BrandDashboard: React.FC = () => {
 
     const fetchData = async () => {
         setLoading(true);
+        try {
+            const { data: violationsData, error: vError } = await supabase
+                .from('violations')
+                .select('*, products(*)')
+                .order('created_at', { ascending: false });
 
-        // 1. Fetch Violations with Product Info
-        const { data: violationsData, error: vError } = await supabase
-            .from('violations')
-            .select('*, products(*)')
-            .order('created_at', { ascending: false });
+            if (vError) throw vError;
 
-        if (vError) console.error('Error fetching violations:', vError);
+            const { count: prodCount } = await supabase.from('products').select('*', { count: 'exact', head: true });
+            const { count: violCount } = await supabase.from('violations').select('*', { count: 'exact', head: true }).eq('status', 'PENDING');
+            const { count: cleanCount } = await supabase.from('violations').select('*', { count: 'exact', head: true }).eq('status', 'REPORTED');
 
-        // 2. Fetch Stats
-        const { count: prodCount } = await supabase.from('products').select('*', { count: 'exact', head: true });
-        const { count: violCount } = await supabase.from('violations').select('*', { count: 'exact', head: true }).eq('status', 'PENDING');
-        const { count: cleanCount } = await supabase.from('violations').select('*', { count: 'exact', head: true }).eq('status', 'REPORTED');
+            if (violationsData) {
+                setViolations(violationsData.map(v => ({
+                    id: v.id,
+                    type: v.violation_type,
+                    product: v.products?.title || 'Unknown Product',
+                    seller: v.products?.seller_name || 'Generic Seller',
+                    price: v.details?.actual_price || 0,
+                    expected: v.details?.expected_min || 0,
+                    status: v.status,
+                    url: v.products?.url || '#'
+                })));
+            }
 
-        if (violationsData) {
-            const formatted = violationsData.map(v => ({
-                id: v.id,
-                type: v.violation_type,
-                product: v.products?.title || 'Unknown Product',
-                seller: v.products?.seller_name || 'Generic Seller',
-                price: v.details?.actual_price || 0,
-                expected: v.details?.expected_min || 0,
-                status: v.status,
-                url: v.products?.url || '#'
-            }));
-            setViolations(formatted);
+            setStats({
+                scanned: prodCount || 0,
+                active: violCount || 0,
+                cleaned: cleanCount || 0
+            });
+        } catch (err) {
+            console.error('Fetch error:', err);
+        } finally {
+            setLoading(false);
         }
-
-        setStats({
-            scanned: prodCount || 0,
-            active: violCount || 0,
-            cleaned: cleanCount || 0
-        });
-
-        setLoading(false);
     };
 
     useEffect(() => {
@@ -51,103 +51,94 @@ const BrandDashboard: React.FC = () => {
     }, []);
 
     return (
-        <div className="min-h-screen bg-slate-950 text-slate-200">
-            {/* Sidebar / Nav */}
-            <nav className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-10">
-                <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                        <Shield className="text-brand-500 w-8 h-8" />
-                        <span className="text-xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-                            Brand Protection Intelligence
-                        </span>
+        <div className="min-h-screen bg-slate-950 text-slate-200 font-sans">
+            {/* Header */}
+            <nav className="border-b border-white/10 bg-slate-900/40 backdrop-blur-xl sticky top-0 z-50">
+                <div className="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-brand-500/20 rounded-xl flex items-center justify-center border border-brand-500/30">
+                            <Shield className="text-brand-400 w-6 h-6" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-lg font-bold tracking-tight text-white">Brand Intelligence</span>
+                            <span className="text-[10px] text-brand-400 font-bold uppercase tracking-widest">MercadoLibre Arg PoC</span>
+                        </div>
                     </div>
-                    <div className="flex gap-4">
-                        <button className="bg-brand-600 hover:bg-brand-500 px-4 py-2 rounded-lg font-semibold transition-all">
-                            Run Scraper Now
-                        </button>
-                    </div>
+                    <button
+                        onClick={fetchData}
+                        disabled={loading}
+                        className="group relative flex items-center gap-2 bg-white/5 hover:bg-white/10 px-5 py-2.5 rounded-full border border-white/10 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                        {loading ? <Search className="w-4 h-4 animate-spin" /> : <Shield className="w-4 h-4 text-brand-400" />}
+                        <span className="text-sm font-semibold">Refresh Insights</span>
+                    </button>
                 </div>
             </nav>
 
-            <main className="max-w-7xl mx-auto p-6 space-y-8">
+            <main className="max-w-7xl mx-auto p-8 space-y-12">
+                {/* Hero Section */}
+                <section className="space-y-2">
+                    <h1 className="text-4xl font-bold tracking-tight text-white">Estado de Situación</h1>
+                    <p className="text-slate-400 max-w-2xl">
+                        Monitoreo en tiempo real de políticas comerciales para <span className="text-brand-400 font-semibold italic">Nutricia Bagó</span>.
+                    </p>
+                </section>
+
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <StatCard title="Total Scanned" value={stats.scanned.toLocaleString()} delta="+100%" icon={<Search className="text-brand-400" />} />
-                    <StatCard title="Active Violations" value={stats.active.toString()} delta="Critical" icon={<AlertTriangle className="text-warning" />} />
-                    <StatCard title="Reported & Cleaned" value={stats.cleaned.toString()} delta="Success" icon={<CheckCircle2 className="text-success" />} />
+                    <StatCard
+                        title="Total Scanned"
+                        value={stats.scanned.toLocaleString()}
+                        label="Products Found"
+                        icon={<Search className="text-blue-400" />}
+                    />
+                    <StatCard
+                        title="Active Violations"
+                        value={stats.active.toString()}
+                        label="Needs Attention"
+                        variant="warning"
+                        icon={<AlertTriangle className="text-amber-400" />}
+                    />
+                    <StatCard
+                        title="Cleaned"
+                        value={stats.cleaned.toString()}
+                        label="Successfully Reported"
+                        variant="success"
+                        icon={<CheckCircle2 className="text-emerald-400" />}
+                    />
                 </div>
 
-                {/* Violations Table */}
-                <div className="bg-slate-900/40 border border-slate-800 rounded-2xl overflow-hidden backdrop-blur-sm">
-                    <div className="p-6 border-b border-slate-800 flex justify-between items-center">
-                        <h2 className="text-lg font-semibold">Real-time Violations Feed (MercadoLibre ARG)</h2>
-                        <div className="flex gap-2">
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                                <input
-                                    type="text"
-                                    placeholder="Filter by seller or product..."
-                                    className="bg-slate-800 border-none rounded-lg pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none w-64"
-                                />
+                {/* Violations Feed */}
+                <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                            <AlertTriangle className="w-5 h-5 text-amber-500" />
+                            Violations Feed
+                        </h2>
+                        <div className="flex gap-4">
+                            <div className="flex bg-slate-900 border border-white/5 rounded-lg p-1">
+                                <button className="px-3 py-1.5 text-xs font-semibold rounded bg-brand-500 text-white shadow-lg">All</button>
+                                <button className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-300">MAP Issues</button>
+                                <button className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-300">Keywords</button>
                             </div>
-                            <button className="bg-slate-800 p-2 rounded-lg hover:bg-slate-700">
-                                <Filter className="w-5 h-5 text-slate-400" />
-                            </button>
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-800/50 text-slate-400 uppercase tracking-wider text-[10px] font-bold">
-                                <tr>
-                                    <th className="px-6 py-4">Status</th>
-                                    <th className="px-6 py-4">Product</th>
-                                    <th className="px-6 py-4">Seller</th>
-                                    <th className="px-6 py-4">Violation</th>
-                                    <th className="px-6 py-4">Details</th>
-                                    <th className="px-6 py-4 text-right">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-800">
-                                {violations.map((v) => (
-                                    <tr key={v.id} className="hover:bg-slate-800/30 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${v.status === 'PENDING' ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'
-                                                }`}>
-                                                {v.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 font-medium text-white">{v.product}</td>
-                                        <td className="px-6 py-4 text-slate-400">{v.seller}</td>
-                                        <td className="px-6 py-4">
-                                            <span className={`font-semibold ${v.type === 'PRICE' ? 'text-danger' : 'text-brand-400'}`}>
-                                                {v.type === 'PRICE' ? `MAP Violation` : `Keyword: "Símil"`}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-400">
-                                            {v.type === 'PRICE' ? (
-                                                <span className="flex flex-col">
-                                                    <span className="line-through text-xs font-mono">$ {v.expected.toLocaleString()}</span>
-                                                    <span className="text-danger font-mono font-bold">$ {v.price.toLocaleString()}</span>
-                                                </span>
-                                            ) : (
-                                                "Counterfeit indication in title"
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <a
-                                                href={v.url}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="inline-flex items-center gap-1 text-brand-400 hover:text-brand-300 font-semibold"
-                                            >
-                                                View <ExternalLink className="w-3 h-3" />
-                                            </a>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                    <div className="grid gap-4">
+                        {loading ? (
+                            <div className="h-64 flex items-center justify-center bg-slate-900/20 rounded-3xl border border-dashed border-white/5">
+                                <span className="text-slate-500 animate-pulse font-medium">Loading data...</span>
+                            </div>
+                        ) : violations.length === 0 ? (
+                            <div className="h-64 flex flex-col items-center justify-center bg-slate-900/20 rounded-3xl border border-dashed border-white/5 gap-3">
+                                <CheckCircle2 className="w-10 h-10 text-emerald-500/50" />
+                                <span className="text-slate-500 font-medium">No active violations detected.</span>
+                            </div>
+                        ) : (
+                            violations.map((v) => (
+                                <ViolationCard key={v.id} data={v} />
+                            ))
+                        )}
                     </div>
                 </div>
             </main>
@@ -155,19 +146,75 @@ const BrandDashboard: React.FC = () => {
     );
 };
 
-const StatCard = ({ title, value, delta, icon }: any) => (
-    <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl hover:border-slate-700 transition-all group">
-        <div className="flex justify-between items-start mb-4">
-            <div className="p-2 bg-slate-800 rounded-xl group-hover:scale-110 transition-transform">
-                {icon}
+const StatCard = ({ title, value, label, icon, variant = 'default' }: any) => {
+    const borderClass = {
+        default: 'border-white/5',
+        warning: 'border-amber-500/20',
+        success: 'border-emerald-500/20'
+    }[variant as 'default' | 'warning' | 'success'];
+
+    return (
+        <div className={`bg-slate-900/40 border ${borderClass} p-8 rounded-[2rem] backdrop-blur-sm hover:border-white/10 transition-all group relative overflow-hidden`}>
+            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                {React.cloneElement(icon as React.ReactElement, { size: 100 })}
             </div>
-            <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${delta.startsWith('+') ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'
-                }`}>
-                {delta}
-            </span>
+            <div className="flex items-center gap-3 mb-4">
+                <div className="p-2.5 bg-white/5 rounded-2xl group-hover:scale-110 transition-transform">
+                    {icon}
+                </div>
+                <span className="text-slate-500 text-sm font-semibold uppercase tracking-wider">{title}</span>
+            </div>
+            <div className="flex flex-col">
+                <span className="text-4xl font-black text-white tracking-tighter mb-1">{value}</span>
+                <span className="text-xs text-slate-500 font-medium">{label}</span>
+            </div>
         </div>
-        <div className="text-slate-500 text-sm font-medium mb-1">{title}</div>
-        <div className="text-3xl font-bold text-white tracking-tight">{value}</div>
+    );
+};
+
+const ViolationCard = ({ data }: { data: any }) => (
+    <div className="bg-slate-900/60 border border-white/5 p-5 rounded-2xl flex items-center gap-6 hover:bg-slate-800/40 hover:border-white/10 transition-all group">
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center border ${data.type === 'PRICE' ? 'bg-rose-500/10 border-rose-500/20' : 'bg-brand-500/10 border-brand-500/20'
+            }`}>
+            {data.type === 'PRICE' ? <AlertTriangle className="text-rose-500 w-6 h-6" /> : <Search className="text-brand-400 w-6 h-6" />}
+        </div>
+
+        <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-widest ${data.status === 'PENDING' ? 'bg-amber-500/10 text-amber-500' : 'bg-emerald-500/10 text-emerald-500'
+                    }`}>
+                    {data.status}
+                </span>
+                <span className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Seller: {data.seller}</span>
+            </div>
+            <h3 className="text-white font-bold truncate pr-4">{data.product}</h3>
+        </div>
+
+        <div className="flex items-center gap-12 pr-4">
+            <div className="flex flex-col items-end">
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Violation</span>
+                <span className={`text-sm font-bold ${data.type === 'PRICE' ? 'text-rose-500' : 'text-brand-400'}`}>
+                    {data.type === 'PRICE' ? 'Market Price below MAP' : 'Prohibited Keywords'}
+                </span>
+            </div>
+
+            <div className="flex flex-col items-end w-24">
+                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Market Price</span>
+                <div className="flex flex-col items-end">
+                    {data.type === 'PRICE' && <span className="text-[10px] text-slate-600 line-through font-mono leading-none">$ {data.expected.toLocaleString()}</span>}
+                    <span className="text-white font-mono font-bold leading-tight">$ {data.price.toLocaleString()}</span>
+                </div>
+            </div>
+
+            <a
+                href={data.url}
+                target="_blank"
+                rel="noreferrer"
+                className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center border border-white/5 hover:bg-brand-500 hover:border-brand-400 transition-all active:scale-90"
+            >
+                <ExternalLink className="w-4 h-4 text-white" />
+            </a>
+        </div>
     </div>
 );
 
