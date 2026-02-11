@@ -39,9 +39,19 @@ class MeliScraper:
                         () => {
                             const items = document.querySelectorAll('.ui-search-layout__item');
                             return Array.from(items).map(item => {
+                                const titleEl = item.querySelector('.ui-search-item__title') || 
+                                                item.querySelector('.poly-component__title');
+                                const priceEl = item.querySelector('.andes-money-amount__fraction') || 
+                                                item.querySelector('.poly-price__current .andes-money-amount__fraction');
+                                const linkEl = item.querySelector('.ui-search-link') || 
+                                               item.querySelector('.poly-component__title a') || 
+                                               item.querySelector('a');
                                 const imgEl = item.querySelector('.ui-search-result-image__element') || 
-                                              item.querySelector('.poly-component__picture') ||
+                                              item.querySelector('.poly-component__picture img') ||
                                               item.querySelector('img');
+                                const sellerEl = item.querySelector('.ui-search-item__group__element--seller') ||
+                                                 item.querySelector('.poly-component__seller') ||
+                                                 item.querySelector('.ui-search-official-store-item__link');
                                 const locationEl = item.querySelector('.ui-search-item__location') ||
                                                    item.querySelector('.poly-component__location');
 
