@@ -13,6 +13,7 @@ interface Violation {
     price: number;
     expected: number;
     diff_pct?: number;
+    found_keywords?: string[];
     status: string;
     url: string;
 }
@@ -21,7 +22,7 @@ const BrandDashboard: React.FC = () => {
     const [violations, setViolations] = useState<Violation[]>([]);
     const [stats, setStats] = useState({ scanned: 0, active: 0, cleaned: 0 });
     const [loading, setLoading] = useState(true);
-    const [activeFilter, setActiveFilter] = useState<'ALL' | 'PRICE' | 'KEYWORD'>('ALL');
+    const [activeFilter, setActiveFilter] = useState<'ALL' | 'PRICE' | 'KEYWORD' | 'ALL_PRODUCTS'>('ALL');
 
     const exportToCSV = () => {
         const headers = ["ID MeLi", "Producto", "Vendedor", "Ubicacion", "Status", "Tipo", "Precio", "MAP", "URL"];
@@ -70,7 +71,7 @@ const BrandDashboard: React.FC = () => {
             const { count: cleanCount } = await supabase.from('violations').select('*', { count: 'exact', head: true }).eq('status', 'REPORTED');
 
             if (violationsData) {
-                setViolations(violationsData.map((v: any) => ({
+                const fetchedViolations = violationsData.map((v: any) => ({
                     id: v.id,
                     meli_id: v.products?.meli_id || 'N/A',
                     type: v.violation_type,
@@ -81,9 +82,33 @@ const BrandDashboard: React.FC = () => {
                     price: v.details?.actual_price || 0,
                     expected: v.details?.expected_min || 0,
                     diff_pct: v.details?.diff_pct || 0,
+                    found_keywords: v.details?.found_keywords || [],
                     status: v.status,
                     url: v.products?.url || '#',
-                })));
+                }));
+
+                // Also fetch clean products to show total worked
+                const { data: allProds } = await supabase.from('products').select('*');
+                if (allProds) {
+                    const cleanViolations = allProds
+                        .filter(p => !violationsData.find(v => v.products?.id === p.id))
+                        .map(p => ({
+                            id: `clean-${p.id}`,
+                            meli_id: p.meli_id,
+                            type: 'INSPECTED',
+                            product: p.title,
+                            seller: p.seller_name,
+                            seller_location: p.seller_location,
+                            is_authorized: p.is_authorized,
+                            price: p.price,
+                            expected: p.price,
+                            status: 'CLEAN',
+                            url: p.url
+                        }));
+                    setViolations([...fetchedViolations, ...cleanViolations]);
+                } else {
+                    setViolations(fetchedViolations);
+                }
             }
 
             setStats({
@@ -102,9 +127,11 @@ const BrandDashboard: React.FC = () => {
         fetchData();
     }, []);
 
-    const filteredViolations = violations.filter(v =>
-        activeFilter === 'ALL' ? true : v.type === activeFilter
-    );
+    const filteredViolations = violations.filter((v: Violation) => {
+        if (activeFilter === 'ALL') return v.status !== 'CLEAN';
+        if (activeFilter === 'ALL_PRODUCTS') return true;
+        return v.type === activeFilter;
+    });
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-200 font-sans">
@@ -200,6 +227,12 @@ const BrandDashboard: React.FC = () => {
                                 >
                                     Keywords
                                 </button>
+                                <button
+                                    onClick={() => setActiveFilter('ALL_PRODUCTS')}
+                                    className={`px-3 py-1.5 text-xs font-semibold rounded transition-all ${activeFilter === 'ALL_PRODUCTS' ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                                >
+                                    Total Analyzed
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -286,6 +319,16 @@ const ViolationCard = ({ data }: { data: Violation }) => (
                     {data.product}
                 </a>
             </div>
+            {data.type === 'KEYWORD' && data.found_keywords && data.found_keywords.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                    <span className="text-[9px] text-slate-500 font-bold uppercase mr-1">Matches:</span>
+                    {data.found_keywords.map(kw => (
+                        <span key={kw} className="text-[9px] bg-rose-500/10 text-rose-500 px-1.5 rounded border border-rose-500/20 font-bold italic">
+                            "{kw}"
+                        </span>
+                    ))}
+                </div>
+            )}
             <div className="flex items-center gap-4 text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
                 <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {data.seller_location}</span>
                 <span>Seller: {data.seller}</span>

@@ -41,16 +41,23 @@ class MeliScraper:
                             return Array.from(items).map(item => {
                                 const titleEl = item.querySelector('.ui-search-item__title') || 
                                                 item.querySelector('.poly-component__title');
-                                const priceEl = item.querySelector('.andes-money-amount__fraction') || 
-                                                item.querySelector('.poly-price__current .andes-money-amount__fraction') ||
-                                                item.querySelector('.ui-search-price__second-line .andes-money-amount__fraction') ||
-                                                item.querySelector('.poly-price__current');
+                                // Price extraction: try several common containers
+                                const priceContainer = item.querySelector('.andes-money-amount') || 
+                                                       item.querySelector('.ui-search-price__part') ||
+                                                       item.querySelector('.poly-price__current');
                                 
-                                // Get price from text or aria-label as fallback
                                 let priceText = '0';
-                                if (priceEl) {
-                                    // Try to get fraction first, if it's the full poly-price, it might contain the whole number
-                                    priceText = priceEl.innerText.replace(/\D/g, '') || '0';
+                                if (priceContainer) {
+                                    // 1. Try ARIA-LABEL (usually says "X pesos") - Most reliable
+                                    const ariaLabel = priceContainer.getAttribute('aria-label');
+                                    if (ariaLabel) {
+                                        priceText = ariaLabel.replace(/\D/g, '') || '0';
+                                    } 
+                                    // 2. Fallback to fraction element
+                                    if (priceText === '0') {
+                                        const fractionEl = priceContainer.querySelector('.andes-money-amount__fraction') || priceContainer;
+                                        priceText = fractionEl.innerText.replace(/\D/g, '') || '0';
+                                    }
                                 }
                                 
                                 const linkEl = item.querySelector('.ui-search-link') || 
