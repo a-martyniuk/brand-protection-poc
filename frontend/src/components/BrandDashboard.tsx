@@ -12,7 +12,7 @@ const BrandDashboard: React.FC = () => {
 
     const filteredViolations = violations.filter((v: Violation) => {
         if (activeFilter === 'ALL') return v.status !== 'CLEAN';
-        if (activeFilter === 'ALL_PRODUCTS') return true;
+        if (activeFilter === 'TOTAL_ANALYZED') return true;
         return v.type === activeFilter;
     });
 
