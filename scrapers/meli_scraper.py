@@ -39,20 +39,19 @@ class MeliScraper:
                         () => {
                             const items = document.querySelectorAll('.ui-search-layout__item');
                             return Array.from(items).map(item => {
-                                const titleEl = item.querySelector('.ui-search-item__title') || 
-                                               item.querySelector('.poly-component__title') || 
-                                               item.querySelector('h2');
-                                const priceEl = item.querySelector('.ui-search-price__second-line .price-tag-fraction') || 
-                                               item.querySelector('.poly-price__current .price-tag-fraction') ||
-                                               item.querySelector('.price-tag-fraction');
-                                const linkEl = item.querySelector('a.ui-search-link') || 
-                                              item.querySelector('a.poly-component__title') ||
-                                              item.querySelector('a');
-                                
+                                const imgEl = item.querySelector('.ui-search-result-image__element') || 
+                                              item.querySelector('.poly-component__picture') ||
+                                              item.querySelector('img');
+                                const sellerEl = item.querySelector('.ui-search-item__group__element--seller') ||
+                                                 item.querySelector('.poly-component__seller') ||
+                                                 item.querySelector('.ui-search-official-store-item__link');
+
                                 return {
                                     title: titleEl ? titleEl.innerText : 'N/A',
                                     price_str: priceEl ? priceEl.innerText : '0',
-                                    url: linkEl ? linkEl.href : 'N/A'
+                                    url: linkEl ? linkEl.href : 'N/A',
+                                    thumbnail: imgEl ? imgEl.src : null,
+                                    seller_name: sellerEl ? sellerEl.innerText : 'Generic Seller'
                                 };
                             });
                         }
@@ -77,7 +76,9 @@ class MeliScraper:
                                 "id": meli_id,
                                 "title": title,
                                 "price": price_val,
-                                "url": link
+                                "url": link,
+                                "thumbnail": p.get("thumbnail"),
+                                "seller_name": p.get("seller_name")
                             })
                         except Exception as e:
                             pass

@@ -15,6 +15,7 @@ class SupabaseHandler:
     def upsert_products(self, products_data):
         """
         Upserts products into the 'products' table using 'meli_id' as the unique conflict key.
+        Includes fields like 'thumbnail' (image URL) and 'seller_name'.
         """
         try:
             response = self.supabase.table("products").upsert(
