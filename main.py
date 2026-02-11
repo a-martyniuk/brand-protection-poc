@@ -25,21 +25,26 @@ async def run_pipeline(search_urls):
         print("Skipping database sync and policy engine as Supabase is not configured.")
         return
 
-    # 4. Sync to Supabase & Get IDs
     # Deduplicate local products by meli_id before upserting
+    # Whitelist updated to include DNA and Media columns
+    DB_COLUMNS_WHITELIST = ["meli_id", "title", "price", "url", "seller_name", "seller_location", "thumbnail"]
+    
     unique_products = {}
     for p in raw_products:
         mid = p["id"]
         if mid not in unique_products:
-            unique_products[mid] = {
+            unique_products[mid] = {k: v for k, v in {
                 "meli_id": mid,
                 "title": p["title"],
                 "price": p["price"],
-                "url": p["url"]
-            }
+                "url": p["url"],
+                "seller_name": p.get("seller_name"),
+                "seller_location": p.get("seller_location"),
+                "thumbnail": p.get("thumbnail")
+            }.items() if k in DB_COLUMNS_WHITELIST}
     
     db_ready_products = list(unique_products.values())
-    print(f"Syncing {len(db_ready_products)} unique products to Supabase...")
+    print(f"Syncing {len(db_ready_products)} unique products to Supabase (including DNA & Media)...")
     
     upserted_data = db.upsert_products(db_ready_products)
     if not upserted_data:

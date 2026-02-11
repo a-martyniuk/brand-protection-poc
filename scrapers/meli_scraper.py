@@ -12,6 +12,8 @@ class MeliScraper:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
+            # Set viewport to be sure we see things
+            await page.set_viewport_size({"width": 1280, "height": 800})
             
             # Anti-detection basic header
             await page.set_extra_http_headers({
@@ -34,28 +36,30 @@ class MeliScraper:
                     items = await page.query_selector_all(".ui-search-layout__item")
                     print(f"Found {len(items)} items on page {page_count + 1}")
                     
-                    # Browser-side extraction for speed and reliability
-                    page_products = await page.evaluate("""
+                    # Browser-side extraction for speed and reliability - using raw string for regex
+                    page_products = await page.evaluate(r"""
                         () => {
                             const items = document.querySelectorAll('.ui-search-layout__item');
                             return Array.from(items).map(item => {
                                 const titleEl = item.querySelector('.ui-search-item__title') || 
-                                                item.querySelector('.poly-component__title');
-                                // Price extraction: try several common containers
+                                                item.querySelector('.poly-component__title') ||
+                                                item.querySelector('h2');
+                                
+                                // Price extraction
                                 const priceContainer = item.querySelector('.andes-money-amount') || 
                                                        item.querySelector('.ui-search-price__part') ||
                                                        item.querySelector('.poly-price__current');
                                 
                                 let priceText = '0';
                                 if (priceContainer) {
-                                    // 1. Try ARIA-LABEL (usually says "X pesos") - Most reliable
                                     const ariaLabel = priceContainer.getAttribute('aria-label');
                                     if (ariaLabel) {
                                         priceText = ariaLabel.replace(/\D/g, '') || '0';
                                     } 
-                                    // 2. Fallback to fraction element
                                     if (priceText === '0') {
-                                        const fractionEl = priceContainer.querySelector('.andes-money-amount__fraction') || priceContainer;
+                                        const fractionEl = priceContainer.querySelector('.andes-money-amount__fraction') || 
+                                                           priceContainer.querySelector('.ui-search-price__second-line__label') ||
+                                                           priceContainer;
                                         priceText = fractionEl.innerText.replace(/\D/g, '') || '0';
                                     }
                                 }
@@ -66,19 +70,56 @@ class MeliScraper:
                                 const imgEl = item.querySelector('.ui-search-result-image__element') || 
                                               item.querySelector('.poly-component__picture img') ||
                                               item.querySelector('img');
-                                const sellerEl = item.querySelector('.ui-search-item__group__element--seller') ||
-                                                 item.querySelector('.poly-component__seller') ||
-                                                 item.querySelector('.ui-search-official-store-item__link');
-                                const locationEl = item.querySelector('.ui-search-item__location') ||
-                                                   item.querySelector('.poly-component__location');
+                                
+                                // Enhanced Seller extraction
+                                let sellerName = 'N/A';
+                                const sellerStrategies = [
+                                    '.ui-search-item__group__element--seller',
+                                    '.poly-component__seller',
+                                    '.ui-search-official-store-item__link',
+                                    '.ui-search-item__seller-name-link',
+                                    '.poly-seller__official-store', // Catalog specific
+                                    'a[href*="perfil"]'
+                                ];
+                                for (const selector of sellerStrategies) {
+                                    const el = item.querySelector(selector);
+                                    if (el && el.innerText.trim()) {
+                                        sellerName = el.innerText.replace(/por\s+/i, '').replace('Vendido ', '').trim();
+                                        break;
+                                    }
+                                }
+                                
+                                // Enhanced Location extraction
+                                let location = 'N/A';
+                                const locationStrategies = [
+                                    '.ui-search-item__location',
+                                    '.poly-component__location',
+                                    '.ui-search-item__group__element--location',
+                                    '.poly-component__location' // Duplicate but safe
+                                ];
+                                for (const selector of locationStrategies) {
+                                    const el = item.querySelector(selector);
+                                    if (el && el.innerText.trim()) {
+                                        location = el.innerText.trim();
+                                        break;
+                                    }
+                                }
+                                
+                                // Last resort: look for any span with poly-box or similar that looks like a location
+                                if (location === 'N/A') {
+                                    const locEl = Array.from(item.querySelectorAll('span, p')).find(el => 
+                                        /capital federal|gba|buenos aires|córdoba|santa fe/i.test(el.innerText)
+                                    );
+                                    if (locEl) location = locEl.innerText.trim();
+                                }
 
                                 return {
                                     title: titleEl ? titleEl.innerText : 'N/A',
-                                    price_str: priceEl ? priceEl.innerText : '0',
+                                    price_str: priceText,
                                     url: linkEl ? linkEl.href : 'N/A',
                                     thumbnail: imgEl ? imgEl.src : null,
-                                    seller_name: sellerEl ? sellerEl.innerText : 'Generic Seller',
-                                    seller_location: locationEl ? locationEl.innerText : 'Location N/A'
+                                    seller_name: sellerName,
+                                    seller_location: location
                                 };
                             });
                         }
@@ -87,6 +128,10 @@ class MeliScraper:
                     print(f"Extracted {len(page_products)} items from page {page_count + 1}")
                     
                     for p in page_products:
+                        if p["seller_name"] == "N/A" or p["seller_location"] == "N/A":
+                            # print(f"DEBUG: Missing DNA for {p['title']}")
+                            pass
+                        
                         try:
                             title = p["title"]
                             link = p["url"]

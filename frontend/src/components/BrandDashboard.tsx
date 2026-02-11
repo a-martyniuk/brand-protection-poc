@@ -5,7 +5,7 @@ import { supabase } from '../supabaseClient';
 interface Violation {
     id: string;
     meli_id?: string;
-    type: 'PRICE' | 'KEYWORD' | string;
+    type: 'PRICE' | 'KEYWORD' | 'UNAUTHORIZED_SELLER' | string;
     product: string;
     seller: string;
     seller_location?: string;
@@ -299,15 +299,6 @@ const ViolationCard = ({ data }: { data: Violation }) => (
                     {data.status}
                 </span>
                 <span className="text-slate-600 bg-white/5 px-2 py-0.5 rounded-full border border-white/5">{data.meli_id}</span>
-                {data.is_authorized ? (
-                    <span className="flex items-center gap-1 text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                        <CheckCircle className="w-3 h-3" /> Autorizado
-                    </span>
-                ) : (
-                    <span className="text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">
-                        No Autorizado
-                    </span>
-                )}
             </div>
             <div className="flex items-center gap-2 mb-1">
                 <a
