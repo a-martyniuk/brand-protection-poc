@@ -42,7 +42,17 @@ class MeliScraper:
                                 const titleEl = item.querySelector('.ui-search-item__title') || 
                                                 item.querySelector('.poly-component__title');
                                 const priceEl = item.querySelector('.andes-money-amount__fraction') || 
-                                                item.querySelector('.poly-price__current .andes-money-amount__fraction');
+                                                item.querySelector('.poly-price__current .andes-money-amount__fraction') ||
+                                                item.querySelector('.ui-search-price__second-line .andes-money-amount__fraction') ||
+                                                item.querySelector('.poly-price__current');
+                                
+                                // Get price from text or aria-label as fallback
+                                let priceText = '0';
+                                if (priceEl) {
+                                    // Try to get fraction first, if it's the full poly-price, it might contain the whole number
+                                    priceText = priceEl.innerText.replace(/\D/g, '') || '0';
+                                }
+                                
                                 const linkEl = item.querySelector('.ui-search-link') || 
                                                item.querySelector('.poly-component__title a') || 
                                                item.querySelector('a');

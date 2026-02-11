@@ -12,6 +12,7 @@ interface Violation {
     is_authorized?: boolean;
     price: number;
     expected: number;
+    diff_pct?: number;
     status: string;
     url: string;
 }
@@ -24,7 +25,7 @@ const BrandDashboard: React.FC = () => {
 
     const exportToCSV = () => {
         const headers = ["ID MeLi", "Producto", "Vendedor", "Ubicacion", "Status", "Tipo", "Precio", "MAP", "URL"];
-        const rows = violations.map(v => [
+        const rows = violations.map((v: Violation) => [
             v.meli_id,
             v.product,
             v.seller,
@@ -38,7 +39,9 @@ const BrandDashboard: React.FC = () => {
 
         const csvContent = [
             headers.join(","),
-            ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
+            ...rows.map((row: (string | number | boolean | undefined)[]) =>
+                row.map(cell => `"${cell ?? ''}"`).join(",")
+            )
         ].join("\n");
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -77,6 +80,7 @@ const BrandDashboard: React.FC = () => {
                     is_authorized: v.products?.is_authorized || false,
                     price: v.details?.actual_price || 0,
                     expected: v.details?.expected_min || 0,
+                    diff_pct: v.details?.diff_pct || 0,
                     status: v.status,
                     url: v.products?.url || '#',
                 })));
@@ -211,7 +215,7 @@ const BrandDashboard: React.FC = () => {
                                 <span className="text-slate-500 font-medium">No active violations detected.</span>
                             </div>
                         ) : (
-                            filteredViolations.map((v) => (
+                            filteredViolations.map((v: Violation) => (
                                 <ViolationCard key={v.id} data={v} />
                             ))
                         )}
@@ -299,7 +303,12 @@ const ViolationCard = ({ data }: { data: Violation }) => (
             <div className="flex flex-col items-end w-24">
                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Market Price</span>
                 <div className="flex flex-col items-end">
-                    {data.type === 'PRICE' && <span className="text-[10px] text-slate-600 line-through font-mono leading-none">$ {data.expected.toLocaleString()}</span>}
+                    {data.type === 'PRICE' && (
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-600 line-through font-mono leading-none">$ {data.expected.toLocaleString()}</span>
+                            <span className="text-[10px] bg-rose-500/10 text-rose-500 px-1 rounded font-bold">-{data.diff_pct}%</span>
+                        </div>
+                    )}
                     <span className="text-white font-mono font-bold leading-tight">$ {data.price.toLocaleString()}</span>
                 </div>
             </div>
