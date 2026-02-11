@@ -52,7 +52,7 @@ const BrandDashboard: React.FC = () => {
                 </div>
             </nav>
 
-            <main className="max-w-7xl mx-auto p-8 space-y-10">
+            <main className="max-w-7xl mx-auto p-4 md:p-8 space-y-10">
                 {/* Hero Section */}
                 <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-white/5">
                     <div className="space-y-2">

@@ -65,7 +65,7 @@ const ViolationCard: React.FC<ViolationCardProps> = ({ data }) => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 items-center gap-4 pt-3 border-t border-white/5">
+            <div className="grid grid-cols-2 items-center gap-2 pt-3 border-t border-white/5">
                 <div className="flex flex-col min-w-0">
                     <span className="text-[8px] text-slate-500 font-black uppercase tracking-widest leading-none mb-1">Analysis</span>
                     {data.type === 'INSPECTED' ? (
