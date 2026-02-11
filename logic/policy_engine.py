@@ -61,20 +61,26 @@ class PolicyEngine:
         return all_violations
 
 if __name__ == "__main__":
-    # Test Data
+    # Test Data for Nutricia Bagó
     sample_policies = [
         {
-            "id": "policy-123",
-            "product_name": "iPhone 15",
-            "min_price": 1000000,
-            "keywords_blacklist": ["replica", "símil", "alternativo"]
+            "id": "pol-nut-001",
+            "product_name": "Nutrilon Profutura 4",
+            "min_price": 15000,
+            "keywords_blacklist": ["vencida", "oferta prohibida"]
+        },
+        {
+            "id": "pol-nut-002",
+            "product_name": "Vital 3",
+            "min_price": 8000,
+            "keywords_blacklist": []
         }
     ]
     
     sample_product = {
-        "title": "iPhone 15 128GB - Símil Original",
-        "price": 850000,
-        "uuid": "prod-456"
+        "title": "Leche Nutrilon Profutura 4 800g - Oferta Vencida",
+        "price": 12000,
+        "uuid": "prod-abc-123"
     }
 
     engine = PolicyEngine(sample_policies)

@@ -22,40 +22,77 @@ class MeliScraper:
                 print(f"Scraping: {url}")
                 await page.goto(url, wait_until="networkidle")
                 
-                while True:
-                    await page.wait_for_selector(".ui-search-results", timeout=10000)
+                page_count = 0
+                max_pages = 3  # PoC Limit
+                while page_count < max_pages:
+                    try:
+                        await page.wait_for_selector(".ui-search-results", timeout=10000)
+                    except:
+                        print("No results found or timed out.")
+                        break
+
                     items = await page.query_selector_all(".ui-search-layout__item")
+                    print(f"Found {len(items)} items on page {page_count + 1}")
                     
-                    for item in items:
+                    # Browser-side extraction for speed and reliability
+                    page_products = await page.evaluate("""
+                        () => {
+                            const items = document.querySelectorAll('.ui-search-layout__item');
+                            return Array.from(items).map(item => {
+                                const titleEl = item.querySelector('.ui-search-item__title') || 
+                                               item.querySelector('.poly-component__title') || 
+                                               item.querySelector('h2');
+                                const priceEl = item.querySelector('.ui-search-price__second-line .price-tag-fraction') || 
+                                               item.querySelector('.poly-price__current .price-tag-fraction') ||
+                                               item.querySelector('.price-tag-fraction');
+                                const linkEl = item.querySelector('a.ui-search-link') || 
+                                              item.querySelector('a.poly-component__title') ||
+                                              item.querySelector('a');
+                                
+                                return {
+                                    title: titleEl ? titleEl.innerText : 'N/A',
+                                    price_str: priceEl ? priceEl.innerText : '0',
+                                    url: linkEl ? linkEl.href : 'N/A'
+                                };
+                            });
+                        }
+                    """)
+                    
+                    print(f"Extracted {len(page_products)} items from page {page_count + 1}")
+                    
+                    for p in page_products:
                         try:
-                            title_el = await item.query_selector(".ui-search-item__title")
-                            title = await title_el.inner_text() if title_el else "N/A"
+                            title = p["title"]
+                            link = p["url"]
+                            price_val = float(p["price_str"].replace(".", "").replace(",", "."))
                             
-                            price_el = await item.query_selector(".ui-search-price__second-line .price-tag-fraction")
-                            price_str = await price_el.inner_text() if price_el else "0"
-                            price = float(price_str.replace(".", "").replace(",", "."))
-                            
-                            link_el = await item.query_selector("a.ui-search-link")
-                            link = await link_el.get_attribute("href") if link_el else "N/A"
-                            
-                            # ID extraction from link or DOM
-                            meli_id = link.split("-")[1] if link and "-" in link else "N/A"
+                            meli_id = "N/A"
+                            if link and "MLA" in link:
+                                import re
+                                match = re.search(r'MLA-?(\d+)', link)
+                                if match:
+                                    meli_id = f"MLA-{match.group(1)}"
 
                             self.results.append({
                                 "id": meli_id,
                                 "title": title,
-                                "price": price,
+                                "price": price_val,
                                 "url": link
                             })
                         except Exception as e:
-                            print(f"Error parsing item: {e}")
+                            pass
 
-                    # Pagination
+                    page_count += 1
+                    await asyncio.sleep(2)
+                    
                     next_button = await page.query_selector(".andes-pagination__button--next a")
                     if next_button:
                         next_url = await next_button.get_attribute("href")
-                        print(f"Moving to next page: {next_url}")
-                        await page.goto(next_url, wait_until="networkidle")
+                        if next_url and next_url.startswith("http"):
+                            print(f"Moving to next page: {next_url}")
+                            await page.goto(next_url, wait_until="networkidle")
+                        else:
+                            break
                     else:
                         break
 

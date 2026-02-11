@@ -26,15 +26,20 @@ async def run_pipeline(search_urls):
         return
 
     # 4. Sync to Supabase & Get IDs
-    # We transform our local data to match DB names if necessary
-    db_ready_products = []
+    # Deduplicate local products by meli_id before upserting
+    unique_products = {}
     for p in raw_products:
-        db_ready_products.append({
-            "meli_id": p["id"],
-            "title": p["title"],
-            "price": p["price"],
-            "url": p["url"]
-        })
+        mid = p["id"]
+        if mid not in unique_products:
+            unique_products[mid] = {
+                "meli_id": mid,
+                "title": p["title"],
+                "price": p["price"],
+                "url": p["url"]
+            }
+    
+    db_ready_products = list(unique_products.values())
+    print(f"Syncing {len(db_ready_products)} unique products to Supabase...")
     
     upserted_data = db.upsert_products(db_ready_products)
     if not upserted_data:
@@ -69,9 +74,10 @@ async def run_pipeline(search_urls):
         print("No violations detected in this run.")
 
 if __name__ == "__main__":
-    # Example starting URLs
+    # Example starting URLs for Nutricia Bagó products
     TARGET_URLS = [
-        "https://listado.mercadolibre.com.ar/iphone-15",
-        "https://listado.mercadolibre.com.ar/samsung-s24"
+        "https://listado.mercadolibre.com.ar/nutricia-bago",
+        "https://listado.mercadolibre.com.ar/leche-nutrilon",
+        "https://listado.mercadolibre.com.ar/leche-vital"
     ]
     asyncio.run(run_pipeline(TARGET_URLS))
