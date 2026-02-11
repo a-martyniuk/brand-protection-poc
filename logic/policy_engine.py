@@ -52,7 +52,8 @@ class PolicyEngine:
                         "policy_id": policy["id"],
                         "violation_type": "KEYWORD",
                         "details": {
-                            "found_keywords": found_keywords
+                            "found_keywords": found_keywords,
+                            "actual_price": product["price"]
                         }
                     })
 
