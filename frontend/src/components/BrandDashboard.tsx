@@ -2,10 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { Shield, AlertTriangle, CheckCircle2, Search, Filter, ExternalLink } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
+interface Violation {
+    id: string;
+    type: 'PRICE' | 'KEYWORD' | string;
+    product: string;
+    seller: string;
+    price: number;
+    expected: number;
+    status: string;
+    url: string;
+}
+
 const BrandDashboard: React.FC = () => {
-    const [violations, setViolations] = useState<any[]>([]);
+    const [violations, setViolations] = useState<Violation[]>([]);
     const [stats, setStats] = useState({ scanned: 0, active: 0, cleaned: 0 });
     const [loading, setLoading] = useState(true);
+    const [activeFilter, setActiveFilter] = useState<'ALL' | 'PRICE' | 'KEYWORD'>('ALL');
 
     const fetchData = async () => {
         setLoading(true);
@@ -22,7 +34,7 @@ const BrandDashboard: React.FC = () => {
             const { count: cleanCount } = await supabase.from('violations').select('*', { count: 'exact', head: true }).eq('status', 'REPORTED');
 
             if (violationsData) {
-                setViolations(violationsData.map(v => ({
+                setViolations(violationsData.map((v: any) => ({
                     id: v.id,
                     type: v.violation_type,
                     product: v.products?.title || 'Unknown Product',
@@ -49,6 +61,10 @@ const BrandDashboard: React.FC = () => {
     useEffect(() => {
         fetchData();
     }, []);
+
+    const filteredViolations = violations.filter(v =>
+        activeFilter === 'ALL' ? true : v.type === activeFilter
+    );
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-200 font-sans">
@@ -117,9 +133,24 @@ const BrandDashboard: React.FC = () => {
                         </h2>
                         <div className="flex gap-4">
                             <div className="flex bg-slate-900 border border-white/5 rounded-lg p-1">
-                                <button className="px-3 py-1.5 text-xs font-semibold rounded bg-brand-500 text-white shadow-lg">All</button>
-                                <button className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-300">MAP Issues</button>
-                                <button className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-300">Keywords</button>
+                                <button
+                                    onClick={() => setActiveFilter('ALL')}
+                                    className={`px-3 py-1.5 text-xs font-semibold rounded transition-all ${activeFilter === 'ALL' ? 'bg-brand-500 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                                >
+                                    All
+                                </button>
+                                <button
+                                    onClick={() => setActiveFilter('PRICE')}
+                                    className={`px-3 py-1.5 text-xs font-semibold rounded transition-all ${activeFilter === 'PRICE' ? 'bg-brand-500 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                                >
+                                    MAP Issues
+                                </button>
+                                <button
+                                    onClick={() => setActiveFilter('KEYWORD')}
+                                    className={`px-3 py-1.5 text-xs font-semibold rounded transition-all ${activeFilter === 'KEYWORD' ? 'bg-brand-500 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                                >
+                                    Keywords
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -129,13 +160,13 @@ const BrandDashboard: React.FC = () => {
                             <div className="h-64 flex items-center justify-center bg-slate-900/20 rounded-3xl border border-dashed border-white/5">
                                 <span className="text-slate-500 animate-pulse font-medium">Loading data...</span>
                             </div>
-                        ) : violations.length === 0 ? (
+                        ) : filteredViolations.length === 0 ? (
                             <div className="h-64 flex flex-col items-center justify-center bg-slate-900/20 rounded-3xl border border-dashed border-white/5 gap-3">
                                 <CheckCircle2 className="w-10 h-10 text-emerald-500/50" />
                                 <span className="text-slate-500 font-medium">No active violations detected.</span>
                             </div>
                         ) : (
-                            violations.map((v) => (
+                            filteredViolations.map((v) => (
                                 <ViolationCard key={v.id} data={v} />
                             ))
                         )}
