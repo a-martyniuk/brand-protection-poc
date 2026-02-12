@@ -183,6 +183,27 @@ class ProductEnricher:
             print(f"Error fetching products: {e}")
             return []
     
+    def clean_url(self, url):
+        """
+        Clean tracking URLs and extract actual product URL.
+        """
+        import re
+        
+        # Skip tracking URLs (click1.mercadolibre.com)
+        if 'click1.mercadolibre.com' in url or 'mclics' in url:
+            # Try to extract MLA ID and construct clean URL
+            mla_match = re.search(r'MLA\d+', url)
+            if mla_match:
+                mla_id = mla_match.group(0)
+                return f"https://www.mercadolibre.com.ar/p/{mla_id}"
+        
+        # Remove tracking parameters
+        if '?' in url:
+            base_url = url.split('?')[0]
+            return base_url
+        
+        return url
+    
     async def scrape_product_details(self, page, url):
         """
         Scrape product detail page for EAN and specifications.
@@ -195,10 +216,13 @@ class ProductEnricher:
             dict with 'ean' and 'specs' keys
         """
         try:
-            await page.goto(url, wait_until="networkidle", timeout=30000)
+            # Clean URL first
+            clean_url = self.clean_url(url)
             
-            # Wait for specs table to load
-            await page.wait_for_selector('.andes-table__row, .ui-pdp-specs__table__row', timeout=10000)
+            await page.goto(clean_url, wait_until="domcontentloaded", timeout=30000)
+            
+            # Wait for specs table to load (increased timeout)
+            await page.wait_for_selector('.andes-table__row, .ui-pdp-specs__table__row', timeout=30000)
             
             # Extract EAN and specs
             details = await page.evaluate("""
