@@ -9,37 +9,48 @@ class IdentificationEngine:
         self.master_products = self.db.get_master_products()
         print(f"Identification Engine initialized with {len(self.master_products)} master products.")
 
-    def extract_measures(self, text):
+    def extract_measures(self, text, substance_hint=None):
         """
         Extracts numbers associated with measures (ml, gr, unidades, xN).
-        Used to detect quantity mismatches.
+        Returns a dict with 'unit_val', 'unit_type', and 'qty'.
         """
-        if not text: return set()
+        if not text: return {"total_kg": 0}
         text = text.lower()
-        measures = set()
+        substance_hint = (substance_hint or "").lower()
         
-        # 1. Matches patterns like "x 4", "x4" (pack size)
-        pack_matches = re.findall(r'x\s?(\d+)', text)
-        for m in pack_matches:
-            measures.add(f"qty_{m}")
+        # 1. Detect Pack Patterns like "24 bricks x 200ml" or "pack x 4 800g"
+        qty = 1
+        unit_val = 0
+        unit_type = None
+        
+        # Try to find quantity: [number] [space] [bricks|unidades|pack|u|x]
+        qty_match = re.search(r'(\d+)\s?(bricks|unidades|units|u|bricks|pack|un|x)', text)
+        if qty_match:
+            qty = int(qty_match.group(1))
             
-        # 2. Matches patterns like "800gr", "800 g", "200 ml"
-        weight_matches = re.findall(r'(\d+)\s?(ml|gr|g|kg|units|unidades)', text)
-        for val, unit in weight_matches:
-            # Normalize units
-            u = "g" if unit in ["gr", "g", "kg"] else "ml" 
-            measures.add(f"{val}{u}")
-            measures.add(val) # Also add the raw number for unit-less matching
+        # Try to find volume: [number] [ml|g|kg|gr]
+        vol_match = re.search(r'(\d+)\s?(ml|gr|g|kg)', text)
+        if vol_match:
+            unit_val = float(vol_match.group(1))
+            unit_type = vol_match.group(2)
+            if unit_type == 'kg':
+                unit_val *= 1000
+                unit_type = 'g'
+            elif unit_type == 'gr':
+                unit_type = 'g'
 
-        # 3. Handle cases like "Tarro 500" or "+ 300" (no units but numeric)
-        # We look for a number at the end or preceded by common separators
-        standalone_nums = re.findall(r'(\d+)$|\D(\d+)\D', text)
-        for group in standalone_nums:
-            for num in group:
-                if num and len(num) > 1: # Avoid single digit noise unless it's pack qty
-                    measures.add(num)
-            
-        return measures
+        # Calculate estimated KG
+        total_kg = 0.0
+        if unit_val > 0:
+            if unit_type == 'g':
+                total_kg = (unit_val * qty) / 1000
+            elif unit_type == 'ml':
+                # Liquid Density Factor (User insight: 200ml -> 0.217kg)
+                # We apply it if the substance is liquid or inferred to be liquid
+                multiplier = 1.085 if "liquid" in substance_hint or "liquido" in substance_hint else 1.0
+                total_kg = ((unit_val * qty) / 1000) * multiplier
+                
+        return {"total_kg": total_kg, "qty": qty, "unit_val": unit_val, "unit_type": unit_type}
 
     def normalize_text(self, text):
         if not text: return ""
@@ -54,9 +65,25 @@ class IdentificationEngine:
         text = re.sub(r'[^a-z0-9\s]', '', text)
         return " ".join(text.split())
 
+    def validate_volumetric_match(self, text, master_product):
+        """
+        Uses FC (Net) to validate if the listing volume matches the master SKU.
+        """
+        m_net = float(master_product.get("fc_net") or 0)
+        m_substance = master_product.get("substance") or ""
+        if m_net == 0: return True
+        
+        measures = self.extract_measures(text, substance_hint=m_substance)
+        l_total_kg = measures.get("total_kg", 0)
+        
+        if l_total_kg == 0: return True 
+        
+        diff = abs(l_total_kg - m_net)
+        return diff < (m_net * 0.20) # 20% tolerance for packing/density variations
+
     def calculate_attribute_score(self, listing_attrs, master_product):
         """
-        Calculates a compatibility score based on structured attributes.
+        Calculates a compatibility score based on structured attributes + FC Validation.
         """
         score = 100
         matches = 0
@@ -66,25 +93,22 @@ class IdentificationEngine:
         m_brand = (master_product.get("brand") or "").lower()
         if l_brand and m_brand:
             if l_brand not in m_brand and m_brand not in l_brand:
-                score -= 40 # Heavy penalty for brand mismatch
+                score -= 40 
             else:
                 matches += 1
 
-        # 2. Stage Match (for formulas)
+        # 2. Volumetric/FC Validation (REFINED)
+        full_text = (listing_attrs.get("title", "") + " " + listing_attrs.get("weight", "")).lower()
+        if not self.validate_volumetric_match(full_text, master_product):
+            score -= 50 # Heavy penalty for format fraud
+        else:
+            matches += 1
+
+        # 3. Stage Match
         m_stage = str(master_product.get("stage") or "").lower()
         if m_stage and m_stage != "nan":
-            # Search for stage in title or attributes
             l_text = (listing_attrs.get("title", "") + " " + listing_attrs.get("weight", "")).lower()
             if m_stage in l_text:
-                matches += 1
-            else:
-                score -= 30
-
-        # 3. Weight/Volume Match
-        m_weight = str(master_product.get("fc_net") or "").split('.')[0]
-        if m_weight and m_weight != "None":
-            l_text = (listing_attrs.get("title", "") + " " + listing_attrs.get("weight", "")).lower()
-            if m_weight in l_text:
                 matches += 1
             else:
                 score -= 30
@@ -144,7 +168,9 @@ class IdentificationEngine:
     def generate_audit_report(self, listing, master_product, match_level):
         """
         Runs all compliance rules and returns result + score.
+        [VERSION: Volumetric_FC_v2]
         """
+        print(f"DEBUG: Running Audit v2 for {listing.get('title')[:30]}...")
         details = {}
         score = 0
         is_price_ok = True
@@ -203,26 +229,30 @@ class IdentificationEngine:
                     if actual_price < expected_min * 0.9:
                         score += 20
 
-        # Rule D: Measure & Quantity Mismatch (Combos)
-        master_measures = self.extract_measures(master_product.get("product_name", ""))
-        listing_measures = self.extract_measures(listing.get("title", ""))
+        # Rule D: Volumetric & Quantity Validation (FC Net aware)
+        m_substance = master_product.get("substance", "")
+        m_measures = self.extract_measures(master_product.get("product_name", ""), substance_hint=m_substance)
+        l_measures = self.extract_measures(listing.get("title", ""), substance_hint=m_substance)
         
-        # Cross-reference with numeric units_per_pack from DB
-        db_units = master_product.get("units_per_pack", 1)
-        if db_units > 1:
-            master_measures.add(f"qty_{db_units}")
-
-        if master_measures and listing_measures:
-            mismatches = master_measures - listing_measures
-            if mismatches:
-                # Detect critical quantity/combo mismatch
-                qty_mismatch = any(m.startswith("qty_") for m in mismatches)
-                if qty_mismatch:
-                    score += 50
-                    details["combo_mismatch"] = True
-                else:
-                    score += 30
-                details["measure_mismatch"] = list(mismatches)
+        m_kg = m_measures.get("total_kg", 0)
+        l_kg = l_measures.get("total_kg", 0)
+        
+        if m_kg > 0 and l_kg > 0:
+            diff_ratio = abs(l_kg - m_kg) / m_kg
+            if diff_ratio > 0.15: # 15% tolerance
+                score += 40
+                details["volumetric_mismatch"] = {
+                    "master_kg": round(m_kg, 3),
+                    "listing_kg": round(l_kg, 3),
+                    "diff_percent": round(diff_ratio * 100, 1)
+                }
+                
+                # Specifically check for quantity (Pack) mismatch
+                m_qty = m_measures.get("qty", 1)
+                l_qty = l_measures.get("qty", 1)
+                if m_qty != l_qty:
+                    score += 20
+                    details["combo_mismatch"] = {"master": m_qty, "listing": l_qty}
 
         # Rule E: Restricted SKU
         if not master_product.get("is_publishable", True):
