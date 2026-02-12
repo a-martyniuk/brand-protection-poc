@@ -154,11 +154,16 @@ class MeliAPIScraper:
                         # Extract brand_detected from attributes
                         brand_detected = attributes.get("brand")
                         
+                        # Clean URL (remove tracking parameters)
+                        url = r["url"]
+                        if '?' in url:
+                            url = url.split('?')[0]  # Remove query parameters
+                        
                         self.results.append({
                             "meli_id": meli_id,
                             "title": r["title"],
                             "price": float(r["price_str"]) if r["price_str"] else 0.0,
-                            "url": r["url"],
+                            "url": url,  # Clean URL
                             "thumbnail": r["thumbnail"],
                             "seller_name": r["seller_name"],
                             "seller_location": r["seller_location"],

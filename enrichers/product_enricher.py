@@ -300,9 +300,6 @@ class ProductEnricher:
                 
                 update_data['attributes'] = current_attrs
             
-            # Mark as enriched
-            update_data['enriched_at'] = 'now()'
-            
             if update_data:
                 self.db.supabase.table("meli_listings").update(update_data).eq("id", product_id).execute()
                 
