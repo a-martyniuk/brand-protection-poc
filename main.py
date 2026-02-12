@@ -50,7 +50,8 @@ async def run_pipeline():
                 "seller_location": l["seller_location"],
                 "thumbnail": l["thumbnail"],
                 "category": l.get("category"),
-                "brand_detected": l.get("brand_detected")
+                "brand_detected": l.get("brand_detected"),
+                "attributes": l.get("attributes", {})
             }
     
     listings_to_sync = list(unique_listings.values())

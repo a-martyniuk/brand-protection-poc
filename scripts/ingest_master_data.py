@@ -71,12 +71,10 @@ def ingest_data(file_path):
     for i in range(0, len(records), batch_size):
         batch = records[i:i + batch_size]
         try:
-            # We use upsert if 'sap_code' was unique, but for now we just insert. 
-            # Ideally we should clear the table first or upsert based on ID. 
-            # Since we don't have a clear unique key constraint on the DB side for SAP/EAN yet (schema didn't enforce it),
-            # we will just INSERT.
-            data, count = supabase.table('official_products').insert(batch).execute()
-            print(f"Inserted batch {i // batch_size + 1}")
+            # We use upsert if 'ean' is unique.
+            # In Supabase, master_products has a UNIQUE constraint on 'ean'.
+            data, count = supabase.table('master_products').upsert(batch, on_conflict='ean').execute()
+            print(f"Upserted batch {i // batch_size + 1}")
         except Exception as e:
             print(f"Error inserting batch: {e}")
 

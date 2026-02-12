@@ -41,18 +41,70 @@ class IdentificationEngine:
             
         return measures
 
+    def normalize_text(self, text):
+        if not text: return ""
+        text = text.lower()
+        # Remove accents
+        text = re.sub(r'[áàäâ]', 'a', text)
+        text = re.sub(r'[éèëê]', 'e', text)
+        text = re.sub(r'[íìïî]', 'i', text)
+        text = re.sub(r'[óòöô]', 'o', text)
+        text = re.sub(r'[úùüû]', 'u', text)
+        # Remove symbols and common noise
+        text = re.sub(r'[^a-z0-9\s]', '', text)
+        return " ".join(text.split())
+
+    def calculate_attribute_score(self, listing_attrs, master_product):
+        """
+        Calculates a compatibility score based on structured attributes.
+        """
+        score = 100
+        matches = 0
+        
+        # 1. Brand Match (Critical)
+        l_brand = listing_attrs.get("brand", "").lower()
+        m_brand = (master_product.get("brand") or "").lower()
+        if l_brand and m_brand:
+            if l_brand not in m_brand and m_brand not in l_brand:
+                score -= 40 # Heavy penalty for brand mismatch
+            else:
+                matches += 1
+
+        # 2. Stage Match (for formulas)
+        m_stage = str(master_product.get("stage") or "").lower()
+        if m_stage and m_stage != "nan":
+            # Search for stage in title or attributes
+            l_text = (listing_attrs.get("title", "") + " " + listing_attrs.get("weight", "")).lower()
+            if m_stage in l_text:
+                matches += 1
+            else:
+                score -= 30
+
+        # 3. Weight/Volume Match
+        m_weight = str(master_product.get("fc_net") or "").split('.')[0]
+        if m_weight and m_weight != "None":
+            l_text = (listing_attrs.get("title", "") + " " + listing_attrs.get("weight", "")).lower()
+            if m_weight in l_text:
+                matches += 1
+            else:
+                score -= 30
+
+        return max(0, score), matches
+
     def identify_product(self, listing):
         """
-        Executes 3-level matching logic and returns a comprehensive audit report.
+        Executes weighted matching logic and returns a comprehensive audit report.
         """
         listing_title_norm = self.normalize_text(listing.get("title", ""))
         listing_ean = listing.get("ean_published")
+        listing_attrs = listing.get("attributes", {})
+        listing_attrs["title"] = listing.get("title", "") # for helper
         
         best_match = None
         match_level = 0
-        max_score = 0
+        max_total_score = 0
         
-        # 1. Level 1: Match exact by EAN (Strong)
+        # 1. Level 1: Match exact by EAN (Strong) - Priority
         if listing_ean:
             for mp in self.master_products:
                 if mp.get("ean") == listing_ean:
@@ -61,21 +113,29 @@ class IdentificationEngine:
                     break
 
         if not best_match:
-            # 2. Level 2: Fuzzy Match by Title + Brand
+            # 2. Level 2: Weighted Attribute + Title Match
             for mp in self.master_products:
+                # Title Similarity (40%)
                 mp_name_norm = self.normalize_text(mp.get("product_name", ""))
-                score = fuzz.token_set_ratio(listing_title_norm, mp_name_norm)
-                if score > max_score:
-                    max_score = score
+                title_sim = fuzz.token_set_ratio(listing_title_norm, mp_name_norm)
+                
+                # Attribute Similarity (60%)
+                attr_score, attr_matches = self.calculate_attribute_score(listing_attrs, mp)
+                
+                # Combined Score
+                total_score = (title_sim * 0.4) + (attr_score * 0.6)
+                
+                if total_score > max_total_score:
+                    max_total_score = total_score
                     best_match = mp
 
-            if max_score > 85:
+            if max_total_score > 85:
                 match_level = 2
-            elif max_score > 70:
+            elif max_total_score > 65: # Lowered threshold because attributes add precision
                 match_level = 3
             else:
                 match_level = 0
-                best_match = None if max_score < 50 else best_match # Keep candidate if plausible
+                best_match = None if max_total_score < 40 else best_match
 
         # 3. Generate Full Audit
         audit = self.generate_audit_report(listing, best_match, match_level)
@@ -101,6 +161,17 @@ class IdentificationEngine:
                 "is_brand_correct": False,
                 "is_publishable_ok": True
             }
+
+        # Attribute-Based Confidence Details
+        listing_attrs = listing.get("attributes", {})
+        listing_attrs["title"] = listing.get("title", "")
+        attr_score, attr_matches = self.calculate_attribute_score(listing_attrs, master_product)
+        details["attribute_breakdown"] = {
+            "score": attr_score,
+            "matches_count": attr_matches,
+            "brand": listing_attrs.get("brand"),
+            "weight": listing_attrs.get("weight")
+        }
 
         # Rule A: EAN Presence
         if not listing.get("ean_published") and match_level > 1:

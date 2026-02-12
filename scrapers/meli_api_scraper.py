@@ -50,20 +50,38 @@ class MeliAPIScraper:
                     page_results = await page.evaluate("""
                         (categoryName) => {
                             const items = document.querySelectorAll('.ui-search-layout__item, .ui-search-result');
-                            return Array.from(items).map(item => {
+                            
+                            // Try to find global preloaded state for better attributes
+                            let globalData = {};
+                            try {
+                                const scripts = document.querySelectorAll('script');
+                                for (const s of scripts) {
+                                    if (s.innerText.includes('window.__PRELOADED_STATE__')) {
+                                        const jsonStr = s.innerText.split('window.__PRELOADED_STATE__ = ')[1].split(';')[0];
+                                        globalData = JSON.parse(jsonStr);
+                                        break;
+                                    }
+                                }
+                            } catch(e) {}
+
+                            const results = Array.from(items).map(item => {
                                 const titleEl = item.querySelector('.ui-search-item__title, .poly-component__title, h2');
                                 const priceEl = item.querySelector('.andes-money-amount__fraction');
                                 const linkEl = item.querySelector('a.ui-search-link, a.poly-component__title, a');
                                 const imgEl = item.querySelector('img.ui-search-result-image__element, .poly-component__picture img, img');
                                 
+                                // Extract simple attributes from visible tags if possible
+                                const attributes = {};
+                                const tagEls = item.querySelectorAll('.ui-search-item__group__element--attributes, .poly-attributes-list__item');
+                                tagEls.forEach(el => {
+                                    const text = el.innerText.trim();
+                                    if (text.toLowerCase().includes('marca')) attributes.brand = text.split(':')[1]?.trim();
+                                    if (text.toLowerCase().includes('neto')) attributes.weight = text;
+                                });
+
                                 // Seller
                                 let seller = 'N/A';
-                                const sellerSelectors = [
-                                    '.ui-search-item__group__element--seller',
-                                    '.poly-component__seller',
-                                    '.ui-search-official-store-item__link',
-                                    '.ui-search-item__seller-name-link'
-                                ];
+                                const sellerSelectors = ['.ui-search-item__group__element--seller', '.poly-component__seller', '.ui-search-official-store-item__link'];
                                 for (const s of sellerSelectors) {
                                     const el = item.querySelector(s);
                                     if (el && el.innerText.trim()) {
@@ -74,7 +92,7 @@ class MeliAPIScraper:
                                 
                                 // Location
                                 let loc = 'N/A';
-                                const locSelectors = ['.ui-search-item__location', '.poly-component__location', '.ui-search-item__group__element--location'];
+                                const locSelectors = ['.ui-search-item__location', '.poly-component__location'];
                                 for (const s of locSelectors) {
                                     const el = item.querySelector(s);
                                     if (el && el.innerText.trim()) {
@@ -90,9 +108,12 @@ class MeliAPIScraper:
                                     thumbnail: imgEl ? imgEl.src : null,
                                     seller_name: seller,
                                     seller_location: loc,
-                                    category: categoryName
+                                    category: categoryName,
+                                    attributes: attributes
                                 };
                             });
+
+                            return results;
                         }
                     """, query)
                     
@@ -106,6 +127,9 @@ class MeliAPIScraper:
                             if match:
                                 meli_id = f"MLA{match.group(1)}"
                         
+                        # Capture and normalize simple attributes if available in listing
+                        attributes = r.get("attributes", {})
+                        
                         self.results.append({
                             "meli_id": meli_id,
                             "title": r["title"],
@@ -115,6 +139,7 @@ class MeliAPIScraper:
                             "seller_name": r["seller_name"],
                             "seller_location": r["seller_location"],
                             "category": r["category"],
+                            "attributes": attributes, # New field
                             "official_product_id": item.get("official_id")
                         })
                         
