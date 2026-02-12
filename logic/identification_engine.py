@@ -124,21 +124,33 @@ class IdentificationEngine:
                 is_price_ok = False
                 details["low_price"] = {"min": expected_min, "actual": actual_price}
                 
-                # Check Discount Policy
+                # STRICT POLICY: If product is flagged as "No Discount Allowed"
                 if not master_product.get("discount_allowed", True):
-                    score += 40 # High penalty for restricted items
+                    score += 60 # Critical: This product should NEVER have a discount
                     details["unauthorized_discount"] = True
                 else:
                     if actual_price < expected_min * 0.9:
                         score += 20
 
-        # Rule D: Measure & Quantity Mismatch
+        # Rule D: Measure & Quantity Mismatch (Combos)
         master_measures = self.extract_measures(master_product.get("product_name", ""))
         listing_measures = self.extract_measures(listing.get("title", ""))
+        
+        # Cross-reference with numeric units_per_pack from DB
+        db_units = master_product.get("units_per_pack", 1)
+        if db_units > 1:
+            master_measures.add(f"qty_{db_units}")
+
         if master_measures and listing_measures:
             mismatches = master_measures - listing_measures
             if mismatches:
-                score += 40
+                # Detect critical quantity/combo mismatch
+                qty_mismatch = any(m.startswith("qty_") for m in mismatches)
+                if qty_mismatch:
+                    score += 50
+                    details["combo_mismatch"] = True
+                else:
+                    score += 30
                 details["measure_mismatch"] = list(mismatches)
 
         # Rule E: Restricted SKU
