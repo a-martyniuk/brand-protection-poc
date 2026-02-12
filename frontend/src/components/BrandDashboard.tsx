@@ -1,24 +1,32 @@
 import React, { useState } from 'react';
-import { Shield, AlertTriangle, CheckCircle2, Search, ExternalLink } from 'lucide-react';
+import { Shield, Search, ExternalLink, TrendingUp, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useBrandData } from '../hooks/useBrandData';
 import { exportToCSV } from '../utils/exportUtils';
-import { FilterType, Violation } from '../types';
 import StatCard from './StatCard';
-import ViolationCard from './ViolationCard';
+import ProductListView from './ProductListView';
 import AnalyticsView from './AnalyticsView';
 
 const BrandDashboard: React.FC = () => {
-    const { violations, stats, loading, fetchData } = useBrandData();
-    const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
-    const [activeTab, setActiveTab] = useState<'feed' | 'analytics'>('feed');
+    const { products, stats, loading, fetchData } = useBrandData();
+    const [activeTab, setActiveTab] = useState<'products' | 'analytics'>('products');
 
-    const filteredViolations = violations.filter((v: Violation) => {
-        if (activeFilter === 'ALL') return v.status !== 'CLEAN';
-        if (activeFilter === 'TOTAL_ANALYZED') return true;
-        return v.type === activeFilter;
-    });
-
-    const handleExport = () => exportToCSV(violations);
+    const handleExport = () => {
+        // Convert products to legacy format for export compatibility
+        const legacyFormat = products.map(p => ({
+            id: p.id,
+            meli_id: p.meli_id,
+            type: p.fraud_score > 60 ? 'HIGH_RISK' : p.fraud_score > 30 ? 'MEDIUM_RISK' : 'LOW_RISK',
+            product: p.title,
+            seller: p.seller,
+            seller_location: p.seller_location,
+            price: p.price,
+            expected: p.master_product?.list_price || 0,
+            status: p.status,
+            url: p.url,
+            thumbnail: p.thumbnail
+        }));
+        exportToCSV(legacyFormat);
+    };
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-brand-500/30">
@@ -40,7 +48,7 @@ const BrandDashboard: React.FC = () => {
                             className="flex items-center gap-2 bg-brand-500/10 hover:bg-brand-500/20 text-brand-400 px-5 py-2 rounded-full border border-brand-500/30 transition-all hover:shadow-[0_0_20px_rgba(var(--brand-500),0.15)] active:scale-95"
                         >
                             <ExternalLink className="w-3.5 h-3.5" />
-                            <span className="text-xs font-bold uppercase tracking-wider">Report</span>
+                            <span className="text-xs font-bold uppercase tracking-wider">Export</span>
                         </button>
                         <button
                             onClick={fetchData}
@@ -65,13 +73,13 @@ const BrandDashboard: React.FC = () => {
                     </div>
                     <div className="flex bg-slate-900/80 border border-white/5 rounded-2xl p-1.5 backdrop-blur-md self-start md:self-end">
                         <button
-                            onClick={() => setActiveTab('feed')}
-                            className={`px-5 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-300 ${activeTab === 'feed'
+                            onClick={() => setActiveTab('products')}
+                            className={`px-5 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-300 ${activeTab === 'products'
                                 ? 'bg-brand-500 text-white shadow-[0_0_20px_rgba(var(--brand-500),0.3)]'
                                 : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
                                 }`}
                         >
-                            Live Feed
+                            Product Audit
                         </button>
                         <button
                             onClick={() => setActiveTab('analytics')}
@@ -86,11 +94,23 @@ const BrandDashboard: React.FC = () => {
                 </header>
 
                 {activeTab === 'analytics' ? (
-                    <AnalyticsView violations={violations} />
+                    <AnalyticsView violations={products.map(p => ({
+                        id: p.id,
+                        meli_id: p.meli_id,
+                        type: p.fraud_score > 60 ? 'HIGH_RISK' : p.fraud_score > 30 ? 'MEDIUM_RISK' : 'LOW_RISK',
+                        product: p.title,
+                        seller: p.seller,
+                        seller_location: p.seller_location,
+                        price: p.price,
+                        expected: p.master_product?.list_price || 0,
+                        status: p.status,
+                        url: p.url,
+                        thumbnail: p.thumbnail
+                    }))} />
                 ) : (
                     <>
                         {/* Stats Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                             <StatCard
                                 title="Total Scanned"
                                 value={stats.scanned.toLocaleString()}
@@ -98,70 +118,37 @@ const BrandDashboard: React.FC = () => {
                                 icon={<Search className="text-blue-400" />}
                             />
                             <StatCard
-                                title="Active Violations"
-                                value={stats.active.toString()}
-                                label="Requiring immediate review"
+                                title="High Risk"
+                                value={stats.high_risk.toString()}
+                                label="Fraud score > 60"
                                 variant="warning"
-                                icon={<AlertTriangle className="text-amber-400" />}
+                                icon={<AlertTriangle className="text-red-400" />}
                             />
                             <StatCard
-                                title="Cleaned"
-                                value={stats.cleaned.toString()}
-                                label="Resolved & reported issues"
+                                title="Medium Risk"
+                                value={stats.medium_risk.toString()}
+                                label="Fraud score 30-60"
+                                icon={<TrendingUp className="text-amber-400" />}
+                            />
+                            <StatCard
+                                title="Low Risk"
+                                value={stats.low_risk.toString()}
+                                label="Fraud score < 30"
                                 variant="success"
                                 icon={<CheckCircle2 className="text-emerald-400" />}
                             />
                         </div>
 
-                        {/* Violations Feed Area */}
-                        <div className="space-y-8">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-amber-500/10 rounded-lg">
-                                        <AlertTriangle className="w-5 h-5 text-amber-500" />
-                                    </div>
-                                    <h2 className="text-xl font-black text-white tracking-tight">Intelligence Feed</h2>
+                        {/* Product List */}
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-brand-500/10 rounded-lg">
+                                    <Shield className="w-5 h-5 text-brand-500" />
                                 </div>
-
-                                <div className="flex bg-slate-900/80 border border-white/5 rounded-2xl p-1.5 backdrop-blur-md overflow-x-auto max-w-full">
-                                    {(['ALL', 'PRICE', 'BRAND_MISM', 'RESTRICTED', 'SUSPICIOUS', 'TOTAL_ANALYZED'] as FilterType[]).map((filter) => (
-                                        <button
-                                            key={filter}
-                                            onClick={() => setActiveFilter(filter)}
-                                            className={`px-4 py-2 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all duration-300 whitespace-nowrap ${activeFilter === filter
-                                                ? (filter === 'TOTAL_ANALYZED' ? 'bg-slate-700 text-white shadow-lg' : 'bg-brand-500 text-white shadow-[0_0_20px_rgba(var(--brand-500),0.3)]')
-                                                : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
-                                                }`}
-                                        >
-                                            {filter.replace('_', ' ')}
-                                        </button>
-                                    ))}
-                                </div>
+                                <h2 className="text-xl font-black text-white tracking-tight">Product Compliance Audit</h2>
                             </div>
 
-                            {loading ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {[1, 2, 3, 4, 5, 6].map((i) => (
-                                        <div key={i} className="h-48 bg-slate-900/40 rounded-3xl border border-white/5 animate-pulse" />
-                                    ))}
-                                </div>
-                            ) : filteredViolations.length === 0 ? (
-                                <div className="h-80 flex flex-col items-center justify-center bg-slate-900/20 rounded-[2.5rem] border border-dashed border-white/5 gap-4">
-                                    <div className="p-4 bg-emerald-500/10 rounded-full">
-                                        <CheckCircle2 className="w-12 h-12 text-emerald-500/50" />
-                                    </div>
-                                    <div className="text-center space-y-1">
-                                        <p className="text-white font-bold text-lg">All products secure</p>
-                                        <p className="text-slate-500 text-sm font-medium">No active violations found for the selected filter.</p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {filteredViolations.map((v) => (
-                                        <ViolationCard key={v.id} data={v} />
-                                    ))}
-                                </div>
-                            )}
+                            <ProductListView products={products} loading={loading} />
                         </div>
                     </>
                 )}
@@ -170,7 +157,7 @@ const BrandDashboard: React.FC = () => {
             <footer className="max-w-7xl mx-auto px-8 py-12 border-t border-white/5 opacity-50">
                 <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
                     <span>BeOn Brand Protection</span>
-                    <span>&copy; {new Date().getFullYear()} POc Dashboard</span>
+                    <span>&copy; {new Date().getFullYear()} PoC Dashboard</span>
                 </div>
             </footer>
         </div>
