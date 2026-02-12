@@ -71,45 +71,21 @@ async def run_pipeline():
         
         listing_uuid = meli_to_uuid[l["meli_id"]]
         
-        # Run Identification
-        master_id, match_level, fraud_score = engine.identify_product(l)
+        # Run Identification & Audit
+        audit = engine.identify_product(l)
+        fraud_score = audit["fraud_score"]
         risk_level = engine.get_risk_level(fraud_score)
         
-        # Compliance Checks
-        is_brand_correct = True
-        is_price_ok = True
-        is_publishable_ok = True
-        violation_details = {}
-
-        if master_id:
-            # Fetch master context for this match
-            mp = next((item for item in master_products if item["id"] == master_id), None)
-            if mp:
-                # 1. Brand Correction
-                if l.get("brand_detected") and l["brand_detected"].lower() != mp["brand"].lower():
-                    is_brand_correct = False
-                    violation_details["brand_mismatch"] = {"expected": mp["brand"], "found": l["brand_detected"]}
-                
-                # 2. Price Check
-                if mp.get("list_price") and l["price"] < mp["list_price"]:
-                    is_price_ok = False
-                    violation_details["low_price"] = {"min": mp["list_price"], "actual": l["price"]}
-                
-                # 3. Publishable Check
-                if not mp.get("is_publishable", True):
-                    is_publishable_ok = False
-                    violation_details["restricted_sku"] = True
-
         audit_records.append({
             "listing_id": listing_uuid,
-            "master_product_id": master_id,
-            "match_level": match_level,
-            "is_brand_correct": is_brand_correct,
-            "is_price_ok": is_price_ok,
-            "is_publishable_ok": is_publishable_ok,
+            "master_product_id": audit["master_id"],
+            "match_level": audit["match_level"],
+            "is_brand_correct": audit["is_brand_correct"],
+            "is_price_ok": audit["is_price_ok"],
+            "is_publishable_ok": audit["is_publishable_ok"],
             "fraud_score": fraud_score,
             "risk_level": risk_level,
-            "violation_details": violation_details
+            "violation_details": audit["details"]
         })
 
     if audit_records:

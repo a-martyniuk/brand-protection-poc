@@ -9,93 +9,157 @@ class IdentificationEngine:
         self.master_products = self.db.get_master_products()
         print(f"Identification Engine initialized with {len(self.master_products)} master products.")
 
-    def normalize_text(self, text):
+    def extract_measures(self, text):
         """
-        Normalizes text for fuzzy matching.
+        Extracts numbers associated with measures (ml, gr, unidades, xN).
+        Used to detect quantity mismatches.
         """
-        if not text: return ""
+        if not text: return set()
         text = text.lower()
-        # Remove accents
-        text = re.sub(r'[áàäâ]', 'a', text)
-        text = re.sub(r'[éèëê]', 'e', text)
-        text = re.sub(r'[íìïî]', 'i', text)
-        text = re.sub(r'[óòöô]', 'o', text)
-        text = re.sub(r'[úùüû]', 'u', text)
-        # Remove symbols and common noise
-        text = re.sub(r'[^a-z0-9\s]', '', text)
-        text = re.sub(r'\b(x|ml|gr|g|unidades|pack)\b', '', text)
-        return " ".join(text.split())
+        measures = set()
+        
+        # 1. Matches patterns like "x 4", "x4" (pack size)
+        pack_matches = re.findall(r'x\s?(\d+)', text)
+        for m in pack_matches:
+            measures.add(f"qty_{m}")
+            
+        # 2. Matches patterns like "800gr", "800 g", "200 ml"
+        weight_matches = re.findall(r'(\d+)\s?(ml|gr|g|kg|units|unidades)', text)
+        for val, unit in weight_matches:
+            # Normalize units
+            u = "g" if unit in ["gr", "g", "kg"] else "ml" 
+            measures.add(f"{val}{u}")
+            measures.add(val) # Also add the raw number for unit-less matching
+
+        # 3. Handle cases like "Tarro 500" or "+ 300" (no units but numeric)
+        # We look for a number at the end or preceded by common separators
+        standalone_nums = re.findall(r'(\d+)$|\D(\d+)\D', text)
+        for group in standalone_nums:
+            for num in group:
+                if num and len(num) > 1: # Avoid single digit noise unless it's pack qty
+                    measures.add(num)
+            
+        return measures
 
     def identify_product(self, listing):
         """
-        Executes 3-level matching logic.
-        :param listing: Dictionary from MeliListing
-        :return: (master_product_id, match_level, fraud_score)
+        Executes 3-level matching logic and returns a comprehensive audit report.
         """
         listing_title_norm = self.normalize_text(listing.get("title", ""))
         listing_ean = listing.get("ean_published")
         
-        # Level 1: Match exact by EAN (Strong)
+        best_match = None
+        match_level = 0
+        max_score = 0
+        
+        # 1. Level 1: Match exact by EAN (Strong)
         if listing_ean:
             for mp in self.master_products:
                 if mp.get("ean") == listing_ean:
-                    return mp["id"], 1, 0 # Exact match, 0 fraud base
+                    best_match = mp
+                    match_level = 1
+                    break
 
-        # Level 2: Fuzzy Match by Title + Brand
-        best_match = None
-        max_score = 0
-        
-        for mp in self.master_products:
-            mp_name_norm = self.normalize_text(mp.get("product_name", ""))
-            score = fuzz.token_set_ratio(listing_title_norm, mp_name_norm)
-            
-            if score > max_score:
-                max_score = score
-                best_match = mp
+        if not best_match:
+            # 2. Level 2: Fuzzy Match by Title + Brand
+            for mp in self.master_products:
+                mp_name_norm = self.normalize_text(mp.get("product_name", ""))
+                score = fuzz.token_set_ratio(listing_title_norm, mp_name_norm)
+                if score > max_score:
+                    max_score = score
+                    best_match = mp
 
-        # Threshold for Level 2
-        if max_score > 85:
-            # We identified it fuzzy
-            fraud_score = self.calculate_fraud_score(listing, best_match, 2)
-            return best_match["id"], 2, fraud_score
+            if max_score > 85:
+                match_level = 2
+            elif max_score > 70:
+                match_level = 3
+            else:
+                match_level = 0
+                best_match = None if max_score < 50 else best_match # Keep candidate if plausible
 
-        # Level 3: Suspicious Brand Detection (Similarity without identity)
-        # If score is between 70-85, it might be a suspicious/apocryphal match
-        if max_score > 70:
-            fraud_score = self.calculate_fraud_score(listing, best_match, 3)
-            return best_match["id"], 3, fraud_score
+        # 3. Generate Full Audit
+        audit = self.generate_audit_report(listing, best_match, match_level)
+        return audit
 
-        # No match found
-        return None, 0, self.calculate_fraud_score(listing, None, 0)
-
-    def calculate_fraud_score(self, listing, master_product, match_level):
+    def generate_audit_report(self, listing, master_product, match_level):
         """
-        Calculates a score from 0-100 indicating likelihood of counterfeit/violation.
+        Runs all compliance rules and returns result + score.
         """
+        details = {}
         score = 0
+        is_price_ok = True
+        is_brand_correct = True
+        is_publishable_ok = True
         
-        # 1. EAN Check (+40 if missing/not matching while in Level 2/3)
-        if not listing.get("ean_published"):
-            score += 40
-            
-        # 2. Brand Alteration Check (+20)
-        # If brand as published looks like an intentionally misspelled version
-        if master_product and listing.get("brand_detected"):
-            brand_sim = fuzz.ratio(listing["brand_detected"].lower(), master_product["brand"].lower())
-            if 80 < brand_sim < 100:
-                score += 20
+        if not master_product:
+            return {
+                "master_id": None,
+                "match_level": 0,
+                "fraud_score": 100 if match_level == 0 else 50,
+                "details": {"unidentified": True},
+                "is_price_ok": False,
+                "is_brand_correct": False,
+                "is_publishable_ok": True
+            }
 
-        # 3. Price Anomaly (+20)
-        if master_product and master_product.get("list_price"):
+        # Rule A: EAN Presence
+        if not listing.get("ean_published") and match_level > 1:
+            score += 30
+            details["missing_ean"] = True
+
+        # Rule B: Brand Integrity
+        if listing.get("brand_detected"):
+            brand_sim = fuzz.ratio(listing["brand_detected"].lower(), master_product["brand"].lower())
+            if brand_sim < 90:
+                is_brand_correct = False
+                score += 20
+                details["brand_mismatch"] = {"expected": master_product["brand"], "found": listing["brand_detected"]}
+
+        # Rule C: Price & Discount Policy
+        if master_product.get("list_price"):
             actual_price = listing.get("price", 0)
             expected_min = master_product["list_price"]
-            if actual_price < expected_min * 0.8:
-                score += 20
+            
+            if actual_price < expected_min:
+                is_price_ok = False
+                details["low_price"] = {"min": expected_min, "actual": actual_price}
+                
+                # Check Discount Policy
+                if not master_product.get("discount_allowed", True):
+                    score += 40 # High penalty for restricted items
+                    details["unauthorized_discount"] = True
+                else:
+                    if actual_price < expected_min * 0.9:
+                        score += 20
 
-        # 4. Level penalties
-        if match_level == 3: score += 10 # Suspicious match bonus
+        # Rule D: Measure & Quantity Mismatch
+        master_measures = self.extract_measures(master_product.get("product_name", ""))
+        listing_measures = self.extract_measures(listing.get("title", ""))
+        if master_measures and listing_measures:
+            mismatches = master_measures - listing_measures
+            if mismatches:
+                score += 40
+                details["measure_mismatch"] = list(mismatches)
 
-        return min(score, 100)
+        # Rule E: Restricted SKU
+        if not master_product.get("is_publishable", True):
+            is_publishable_ok = False
+            score += 50
+            details["restricted_sku"] = True
+
+        # Penalties by level
+        if match_level == 3: score += 10
+        
+        return {
+            "master_id": master_product["id"],
+            "match_level": match_level,
+            "fraud_score": min(score, 100),
+            "details": details,
+            "is_price_ok": is_price_ok,
+            "is_brand_correct": is_brand_correct,
+            "is_publishable_ok": is_publishable_ok,
+            "master_context": master_product # Return for debugging
+        }
 
     def get_risk_level(self, score):
         if score >= 60: return "Alto"

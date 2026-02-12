@@ -10,6 +10,8 @@ export interface Violation {
     expected: number;
     diff_pct?: number;
     found_keywords?: string[];
+    measure_mismatch?: string[];
+    unauthorized_discount?: boolean;
     status: string;
     url: string;
     thumbnail?: string;

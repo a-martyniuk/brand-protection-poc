@@ -48,6 +48,8 @@ export const useBrandData = () => {
                             ? Math.round(((a.violation_details.low_price.min - l.price) / a.violation_details.low_price.min) * 100)
                             : 0,
                         found_keywords: a.violation_details?.brand_mismatch ? [a.violation_details.brand_mismatch.found] : [],
+                        measure_mismatch: a.violation_details?.measure_mismatch || [],
+                        unauthorized_discount: a.violation_details?.unauthorized_discount || false,
                         status: a.status || 'PENDING',
                         url: l?.url || '#',
                         thumbnail: l?.thumbnail
