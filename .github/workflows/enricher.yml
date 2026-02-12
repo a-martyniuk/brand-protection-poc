@@ -26,6 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120  # 2 hours max
     
+    permissions:
+      contents: read
+      issues: write  # Allow creating issues on failure
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -45,6 +49,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           LIMIT="${{ github.event.inputs.limit }}"
           BATCH="${{ github.event.inputs.batch_size || '15' }}"
