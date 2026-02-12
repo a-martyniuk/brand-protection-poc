@@ -160,6 +160,7 @@ class MeliAPIEnricher:
     def get_item_details(self, meli_id):
         """
         Get item details from MercadoLibre API.
+        Handles both catalog products and regular items.
         
         Args:
             meli_id: MercadoLibre item ID (e.g., MLA123456)
@@ -168,16 +169,21 @@ class MeliAPIEnricher:
             dict with 'ean', 'brand', and other attributes
         """
         try:
-            # Use public API endpoint (no auth needed for basic info)
-            url = f"https://api.mercadolibre.com/items/{meli_id}"
+            # Try catalog endpoint first (for official products)
+            catalog_url = f"https://api.mercadolibre.com/products/{meli_id}"
             
             headers = {}
             if self.access_token:
                 headers["Authorization"] = f"Bearer {self.access_token}"
             
-            response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status()
+            response = requests.get(catalog_url, headers=headers, timeout=10)
             
+            # If catalog fails with 404, try items endpoint
+            if response.status_code == 404:
+                item_url = f"https://api.mercadolibre.com/items/{meli_id}"
+                response = requests.get(item_url, headers=headers, timeout=10)
+            
+            response.raise_for_status()
             data = response.json()
             
             # Extract relevant info
@@ -187,10 +193,20 @@ class MeliAPIEnricher:
                 "attributes": {}
             }
             
-            # Parse attributes
-            for attr in data.get("attributes", []):
-                attr_id = attr.get("id", "").lower()
-                attr_name = attr.get("name", "").lower()
+            # Parse attributes (works for both catalog and items)
+            attributes = data.get("attributes", [])
+            
+            # For catalog products, attributes might be in a different structure
+            if not attributes and "main_features" in data:
+                # Convert main_features to attributes format
+                attributes = [
+                    {"id": f["key"], "name": f["key"], "value_name": f["value"]}
+                    for f in data.get("main_features", [])
+                ]
+            
+            for attr in attributes:
+                attr_id = str(attr.get("id", "")).lower()
+                attr_name = str(attr.get("name", "")).lower()
                 value = attr.get("value_name") or attr.get("value_struct", {}).get("number")
                 
                 # EAN / GTIN
@@ -198,12 +214,19 @@ class MeliAPIEnricher:
                     details["ean"] = str(value) if value else None
                 
                 # Brand
-                if attr_id == "brand" or "marca" in attr_name:
+                if attr_id == "brand" or "marca" in attr_name or attr_id == "marca":
                     details["brand"] = value
                 
                 # Store all attributes
                 if value:
-                    details["attributes"][attr.get("name")] = value
+                    details["attributes"][attr.get("name", attr_id)] = value
+            
+            # Also check top-level fields for catalog products
+            if not details["brand"] and "brand" in data:
+                details["brand"] = data["brand"]
+            
+            if not details["ean"] and "gtin" in data:
+                details["ean"] = data["gtin"]
             
             return details
             
