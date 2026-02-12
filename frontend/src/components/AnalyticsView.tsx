@@ -34,8 +34,9 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({ violations }) => {
         // Violation Types
         const typeCounts = {
             PRICE: activeViolations.filter(v => v.type === 'PRICE').length,
-            KEYWORD: activeViolations.filter(v => v.type === 'KEYWORD').length,
-            UNAUTHORIZED: activeViolations.filter(v => v.type === 'UNAUTHORIZED_SELLER').length,
+            BRAND: activeViolations.filter(v => v.type === 'BRAND_MISM').length,
+            RESTRICTED: activeViolations.filter(v => v.type === 'RESTRICTED').length,
+            SUSPICIOUS: activeViolations.filter(v => v.type === 'SUSPICIOUS').length,
         };
 
         // Price Deviations
@@ -121,6 +122,7 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({ violations }) => {
                                     <div
                                         className="h-full bg-gradient-to-r from-brand-600 to-brand-400 rounded-full transition-all duration-1000 ease-out group-hover:shadow-[0_0_10px_rgba(var(--brand-500),0.5)]"
                                         style={{ width: `${Math.max(seller.percentage, 5)}%` }} // Min width for visibility
+                                    // key={`bar-${index}`} 
                                     />
                                 </div>
                             </div>
@@ -140,26 +142,39 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({ violations }) => {
                     <div className="flex-1 flex items-center justify-center gap-8">
                         {/* Circular CSS Chart (Donut alternative) */}
                         <div className="relative w-40 h-40 rounded-full border-[12px] border-slate-800 flex items-center justify-center">
-                            {/* We can use conic-gradient for a true chart, but for this POC, let's use a simplified visual representation or just counters */}
                             <div className="text-center">
                                 <span className="block text-3xl font-black text-white">{stats.activeCount}</span>
                                 <span className="text-[10px] uppercase tracking-widest text-slate-500">Total</span>
                             </div>
                         </div>
 
-                        <div className="space-y-3">
+                        <div className="grid grid-cols-1 gap-3">
                             <div className="flex items-center gap-3">
-                                <div className="w-3 h-3 rounded-full bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" />
+                                <div className="w-3 h-3 rounded-full bg-rose-500" />
                                 <div>
-                                    <div className="text-white font-bold text-sm">Price</div>
-                                    <div className="text-xs text-slate-500">{stats.typeCounts.PRICE} incidents</div>
+                                    <div className="text-white font-bold text-xs">Price</div>
+                                    <div className="text-[10px] text-slate-500">{stats.typeCounts.PRICE}</div>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
-                                <div className="w-3 h-3 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" />
+                                <div className="w-3 h-3 rounded-full bg-amber-500" />
                                 <div>
-                                    <div className="text-white font-bold text-sm">Keywords</div>
-                                    <div className="text-xs text-slate-500">{stats.typeCounts.KEYWORD} incidents</div>
+                                    <div className="text-white font-bold text-xs">Brand</div>
+                                    <div className="text-[10px] text-slate-500">{stats.typeCounts.BRAND}</div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="w-3 h-3 rounded-full bg-purple-500" />
+                                <div>
+                                    <div className="text-white font-bold text-xs">Restrict</div>
+                                    <div className="text-[10px] text-slate-500">{stats.typeCounts.RESTRICTED}</div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="w-3 h-3 rounded-full bg-brand-500" />
+                                <div>
+                                    <div className="text-white font-bold text-xs">Fraud</div>
+                                    <div className="text-[10px] text-slate-500">{stats.typeCounts.SUSPICIOUS}</div>
                                 </div>
                             </div>
                         </div>

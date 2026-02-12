@@ -1,40 +1,104 @@
 import asyncio
 import json
 import os
+import re
 from playwright.async_api import async_playwright
 
 class MeliScraper:
-    def __init__(self, base_urls):
-        self.base_urls = base_urls
+    def __init__(self, search_items):
+        """
+        :param search_items: List of dictionaries, each containing:
+            - url: The search URL
+            - official_id: UUID of the official product
+            - expected_price: The official list price (decimal)
+            - product_name: Name for logging
+        """
+        self.search_items = search_items
         self.results = []
 
     async def scrape(self):
+        print("Initializing Playwright...")
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
-            page = await browser.new_page()
-            # Set viewport to be sure we see things
-            await page.set_viewport_size({"width": 1280, "height": 800})
+            print("Launching browser with persistent context...")
+            user_data_dir = os.path.join(os.getcwd(), "user_data")
+            # Create user data dir if it doesn't exist
+            os.makedirs(user_data_dir, exist_ok=True)
             
-            # Anti-detection basic header
+            context = await p.chromium.launch_persistent_context(
+                user_data_dir,
+                channel="chrome", # Try using real Chrome to bypass bot detection
+                headless=True,
+                viewport={"width": 1280, "height": 800},
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+                args=["--disable-blink-features=AutomationControlled"] 
+            )
+            
+            page = context.pages[0] if context.pages else await context.new_page()
+
+            # Anti-detection basic header - context already sets UA, but let's be safe
             await page.set_extra_http_headers({
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+                "Accept-Language": "es-419,es;q=0.9",
+                "Referer": "https://www.google.com/"
             })
 
-            for url in self.base_urls:
-                print(f"Scraping: {url}")
-                await page.goto(url, wait_until="networkidle")
+            print(f"Starting to scrape {len(self.search_items)} items...")
+            
+            # Navigate to home page first to establish session
+            try:
+                print("Navigating to home page...")
+                await page.goto("https://www.mercadolibre.com.ar", wait_until="networkidle", timeout=60000)
+                await asyncio.sleep(2) # mimic user pause
+            except Exception as e:
+                print(f"Error loading home page: {e}")
+                return []
+
+            for item in self.search_items:
+                # Extract query from URL or use product name if reasonable
+                # URL format: .../query
+                query = item["url"].split("/")[-1].replace("-", " ")
+                print(f"Searching for: {query}")
+                
+                try:
+                    # Type in search bar
+                    search_input = await page.wait_for_selector("input.nav-search-input")
+                    await search_input.fill("") # Clear
+                    await search_input.fill(query)
+                    await page.keyboard.press("Enter")
+                    
+                    # Wait for results or 'no results'
+                    await page.wait_for_load_state("networkidle")
+                except Exception as e:
+                    print(f"Error performing search for {query}: {e}")
+                    # DEBUG: detailed failure analysis
+                    screenshot_path = f"c:/Users/Martyniuk-Ntbk-Gmr/AppData/Local/Temp/debug_meli_search_fail_{query}.png"
+                    await page.screenshot(path=screenshot_path)
+                    print(f"Saved debug screenshot to {screenshot_path}")
+                    continue
                 
                 page_count = 0
-                max_pages = 3  # PoC Limit
+                max_pages = 2  # PoC Limit per product
+                
                 while page_count < max_pages:
                     try:
-                        await page.wait_for_selector(".ui-search-results", timeout=10000)
+                        # Wait for either results or "no matches" message
+                        # .ui-search-results is for grid/list
+                        # sometimes it's .ui-search-layout
+                        await page.wait_for_selector(".ui-search-layout__item", timeout=10000)
                     except:
                         print("No results found or timed out.")
+                        # DEBUG: detailed failure analysis
+                        screenshot_path = f"c:/Users/Martyniuk-Ntbk-Gmr/AppData/Local/Temp/debug_meli_{item['product_name'].replace(' ', '_')}.png"
+                        await page.screenshot(path=screenshot_path)
+                        print(f"Saved debug screenshot to {screenshot_path}")
+                        
+                        html_path = f"c:/Users/Martyniuk-Ntbk-Gmr/AppData/Local/Temp/debug_meli_{item['product_name'].replace(' ', '_')}.html"
+                        with open(html_path, "w", encoding="utf-8") as f:
+                            f.write(await page.content())
+                        print(f"Saved debug HTML to {html_path}")
                         break
-
+                    
                     items = await page.query_selector_all(".ui-search-layout__item")
-                    print(f"Found {len(items)} items on page {page_count + 1}")
+                    # print(f"Found {len(items)} items on page {page_count + 1}")
                     
                     # Browser-side extraction for speed and reliability - using raw string for regex
                     page_products = await page.evaluate(r"""
@@ -125,11 +189,10 @@ class MeliScraper:
                         }
                     """)
                     
-                    print(f"Extracted {len(page_products)} items from page {page_count + 1}")
+                    # print(f"Extracted {len(page_products)} items from page {page_count + 1}")
                     
                     for p in page_products:
                         if p["seller_name"] == "N/A" or p["seller_location"] == "N/A":
-                            # print(f"DEBUG: Missing DNA for {p['title']}")
                             pass
                         
                         try:
@@ -139,7 +202,6 @@ class MeliScraper:
                             
                             meli_id = "N/A"
                             if link and "MLA" in link:
-                                import re
                                 match = re.search(r'MLA-?(\d+)', link)
                                 if match:
                                     meli_id = f"MLA-{match.group(1)}"
@@ -151,7 +213,10 @@ class MeliScraper:
                                 "url": link,
                                 "thumbnail": p.get("thumbnail"),
                                 "seller_name": p.get("seller_name"),
-                                "seller_location": p.get("seller_location")
+                                "seller_location": p.get("seller_location"),
+                                # Context fields
+                                "official_product_id": item.get("official_id"),
+                                "official_expected_price": item.get("expected_price")
                             })
                         except Exception as e:
                             pass
@@ -159,29 +224,35 @@ class MeliScraper:
                     page_count += 1
                     await asyncio.sleep(2)
                     
+                    # Pagination Logic
                     next_button = await page.query_selector(".andes-pagination__button--next a")
                     if next_button:
                         next_url = await next_button.get_attribute("href")
                         if next_url and next_url.startswith("http"):
-                            print(f"Moving to next page: {next_url}")
+                            # print(f"Moving to next page: {next_url}")
                             await page.goto(next_url, wait_until="networkidle")
                         else:
                             break
                     else:
                         break
-
+            
             await browser.close()
             return self.results
 
-    def save_results(self, filename="d:/Projects/brand-protection-poc/data/raw_products.json"):
+    def save_results(self, filename="c:/Users/Martyniuk-Ntbk-Gmr/AppData/Local/Temp/raw_products.json"):
         os.makedirs(os.path.dirname(filename), exist_ok=True)
         with open(filename, "w", encoding="utf-8") as f:
             json.dump(self.results, f, indent=4, ensure_ascii=False)
         print(f"Saved {len(self.results)} products to {filename}")
 
 if __name__ == "__main__":
-    # Sample URL for testing (iPhone 15 in Argentina)
-    test_urls = ["https://listado.mercadolibre.com.ar/iphone-15"]
-    scraper = MeliScraper(test_urls)
+    # Test with structured item
+    test_items = [{
+        "url": "https://listado.mercadolibre.com.ar/iphone-15",
+        "official_id": "test-uuid",
+        "expected_price": 1000000,
+        "product_name": "iPhone 15"
+    }]
+    scraper = MeliScraper(test_items)
     asyncio.run(scraper.scrape())
     scraper.save_results()

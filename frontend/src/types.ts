@@ -21,4 +21,4 @@ export interface DashboardStats {
     cleaned: number;
 }
 
-export type FilterType = 'ALL' | 'PRICE' | 'KEYWORD' | 'TOTAL_ANALYZED';
+export type FilterType = 'ALL' | 'PRICE' | 'BRAND_MISM' | 'RESTRICTED' | 'SUSPICIOUS' | 'TOTAL_ANALYZED';

@@ -123,12 +123,12 @@ const BrandDashboard: React.FC = () => {
                                     <h2 className="text-xl font-black text-white tracking-tight">Intelligence Feed</h2>
                                 </div>
 
-                                <div className="flex bg-slate-900/80 border border-white/5 rounded-2xl p-1.5 backdrop-blur-md">
-                                    {(['ALL', 'PRICE', 'KEYWORD', 'TOTAL_ANALYZED'] as FilterType[]).map((filter) => (
+                                <div className="flex bg-slate-900/80 border border-white/5 rounded-2xl p-1.5 backdrop-blur-md overflow-x-auto max-w-full">
+                                    {(['ALL', 'PRICE', 'BRAND_MISM', 'RESTRICTED', 'SUSPICIOUS', 'TOTAL_ANALYZED'] as FilterType[]).map((filter) => (
                                         <button
                                             key={filter}
                                             onClick={() => setActiveFilter(filter)}
-                                            className={`px-5 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-300 ${activeFilter === filter
+                                            className={`px-4 py-2 text-[9px] font-black uppercase tracking-widest rounded-xl transition-all duration-300 whitespace-nowrap ${activeFilter === filter
                                                 ? (filter === 'TOTAL_ANALYZED' ? 'bg-slate-700 text-white shadow-lg' : 'bg-brand-500 text-white shadow-[0_0_20px_rgba(var(--brand-500),0.3)]')
                                                 : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
                                                 }`}

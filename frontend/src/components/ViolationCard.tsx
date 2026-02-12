@@ -73,8 +73,13 @@ const ViolationCard: React.FC<ViolationCardProps> = ({ data }) => {
                             <Shield className="w-3 h-3" /> Compliant
                         </span>
                     ) : (
-                        <span className={`text-[10px] font-bold truncate ${data.type === 'PRICE' ? 'text-rose-400' : 'text-brand-400'}`}>
-                            {data.type === 'PRICE' ? 'MAP Deviation' : 'Forbidden Keywords'}
+                        <span className={`text-[10px] font-bold truncate ${data.type === 'PRICE' ? 'text-rose-400' :
+                                data.type === 'RESTRICTED' ? 'text-purple-400' :
+                                    data.type === 'BRAND_MISM' ? 'text-amber-400' : 'text-brand-400'
+                            }`}>
+                            {data.type === 'PRICE' ? 'MAP Deviation' :
+                                data.type === 'RESTRICTED' ? 'Restricted SKU' :
+                                    data.type === 'BRAND_MISM' ? 'Brand Mismatch' : 'Suspicious Listing'}
                         </span>
                     )}
                 </div>
@@ -93,10 +98,12 @@ const ViolationCard: React.FC<ViolationCardProps> = ({ data }) => {
                 </div>
             </div>
 
-            {data.type === 'KEYWORD' && data.found_keywords && data.found_keywords.length > 0 && (
+            {(data.type === 'KEYWORD' || data.type === 'BRAND_MISM') && data.found_keywords && data.found_keywords.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-1 pt-2 border-t border-white/5">
                     {data.found_keywords.slice(0, 3).map(kw => (
-                        <span key={kw} className="text-[8px] bg-rose-500/10 text-rose-500 px-1 rounded border border-rose-500/10 font-bold italic">"{kw}"</span>
+                        <span key={kw} className={`text-[8px] px-1 rounded border font-bold italic ${data.type === 'BRAND_MISM' ? 'bg-amber-500/10 text-amber-500 border-amber-500/10' : 'bg-rose-500/10 text-rose-500 border-rose-500/10'}`}>
+                            "{kw}"
+                        </span>
                     ))}
                 </div>
             )}

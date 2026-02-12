@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+
+# Node.js
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Data & Temp
+user_data/
+debug/
+data/*.json
+!data/raw_products.json
+*.xlsx
+*.log
+
+# IDE
+.vscode/
+.idea/
+.gemini/
+.agent/
+brain/
