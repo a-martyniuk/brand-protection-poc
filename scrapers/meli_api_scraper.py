@@ -72,12 +72,33 @@ class MeliAPIScraper:
                                 
                                 // Extract simple attributes from visible tags if possible
                                 const attributes = {};
-                                const tagEls = item.querySelectorAll('.ui-search-item__group__element--attributes, .poly-attributes-list__item');
-                                tagEls.forEach(el => {
-                                    const text = el.innerText.trim();
-                                    if (text.toLowerCase().includes('marca')) attributes.brand = text.split(':')[1]?.trim();
-                                    if (text.toLowerCase().includes('neto')) attributes.weight = text;
-                                });
+                                // Try multiple selector patterns for attributes (Meli A/B testing)
+                                const attributeSelectors = [
+                                    '.ui-search-item__group__element--attributes',
+                                    '.poly-attributes-list__item',
+                                    '.ui-search-card-attributes__item',
+                                    '.poly-component__attributes-list-item'
+                                ];
+                                
+                                for (const selector of attributeSelectors) {
+                                    const tagEls = item.querySelectorAll(selector);
+                                    if (tagEls.length > 0) {
+                                        tagEls.forEach(el => {
+                                            const text = el.innerText.trim();
+                                            const lowerText = text.toLowerCase();
+                                            if (lowerText.includes('marca')) {
+                                                attributes.brand = text.split(':').length > 1 ? text.split(':')[1].trim() : text.replace(/marca/i, '').trim();
+                                            }
+                                            if (lowerText.includes('neto') || lowerText.includes('peso') || lowerText.includes('gr') || lowerText.includes('ml')) {
+                                                attributes.weight = text;
+                                            }
+                                            if (lowerText.includes('etapa')) {
+                                                attributes.stage = text;
+                                            }
+                                        });
+                                        if (Object.keys(attributes).length > 0) break;
+                                    }
+                                }
 
                                 // Seller
                                 let seller = 'N/A';

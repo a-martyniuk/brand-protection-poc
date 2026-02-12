@@ -66,13 +66,28 @@ def ingest_data(file_path):
 
     print(f"Prepared {len(records)} records for insertion/upsert.")
     
+    # Probe the table to see which columns exist to avoid "PGRST204" (Column not found)
+    try:
+        sample = supabase.table('master_products').select("*").limit(1).execute()
+        existing_cols = set(sample.data[0].keys()) if sample.data else set()
+        print(f"Detected columns in DB: {existing_cols}")
+    except:
+        existing_cols = None
+
     # Batch insert to avoid timeouts
     batch_size = 100
     for i in range(0, len(records), batch_size):
         batch = records[i:i + batch_size]
+        
+        # Filter batch records to only include existing columns if probe was successful
+        if existing_cols:
+            filtered_batch = []
+            for r in batch:
+                filtered_batch.append({k: v for k, v in r.items() if k in existing_cols})
+            batch = filtered_batch
+
         try:
             # We use upsert if 'ean' is unique.
-            # In Supabase, master_products has a UNIQUE constraint on 'ean'.
             data, count = supabase.table('master_products').upsert(batch, on_conflict='ean').execute()
             print(f"Upserted batch {i // batch_size + 1}")
         except Exception as e:
