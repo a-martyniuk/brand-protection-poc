@@ -2,3 +2,6 @@ playwright==1.41.2
 supabase==2.3.7
 python-dotenv==1.0.1
 asyncio==3.4.3
+openpyxl
+fuzzywuzzy
+python-Levenshtein

@@ -151,6 +151,9 @@ class MeliAPIScraper:
                         # Capture and normalize simple attributes if available in listing
                         attributes = r.get("attributes", {})
                         
+                        # Extract brand_detected from attributes
+                        brand_detected = attributes.get("brand")
+                        
                         self.results.append({
                             "meli_id": meli_id,
                             "title": r["title"],
@@ -160,6 +163,8 @@ class MeliAPIScraper:
                             "seller_name": r["seller_name"],
                             "seller_location": r["seller_location"],
                             "category": r["category"],
+                            "brand_detected": brand_detected,  # NEW: Extract brand from attributes
+                            "ean_published": None,  # Will be enriched later by enricher
                             "attributes": attributes, # New field
                             "official_product_id": item.get("official_id")
                         })

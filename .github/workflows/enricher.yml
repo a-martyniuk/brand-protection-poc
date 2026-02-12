@@ -1,0 +1,82 @@
+name: Product Enricher
+
+on:
+  # Run manually
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Number of products to enrich (leave empty for all)'
+        required: false
+        default: ''
+      batch_size:
+        description: 'Batch size'
+        required: false
+        default: '15'
+      delay:
+        description: 'Delay between requests (seconds)'
+        required: false
+        default: '3'
+  
+  # Run on schedule (daily at 2 AM UTC)
+  schedule:
+    - cron: '0 2 * * *'
+
+jobs:
+  enrich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120  # 2 hours max
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          playwright install chromium
+      
+      - name: Run enricher
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          LIMIT="${{ github.event.inputs.limit }}"
+          BATCH="${{ github.event.inputs.batch_size || '15' }}"
+          DELAY="${{ github.event.inputs.delay || '3' }}"
+          
+          if [ -z "$LIMIT" ]; then
+            python enrichers/product_enricher.py "$BATCH" "$DELAY"
+          else
+            python enrichers/product_enricher.py "$LIMIT" "$BATCH" "$DELAY"
+          fi
+      
+      - name: Upload status file
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: enricher-status
+          path: enricher_status.json
+          retention-days: 7
+      
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🔴 Product Enricher Failed',
+              body: `The product enricher workflow failed.
+              
+              **Run**: ${context.runId}
+              **Triggered by**: ${context.eventName}
+              
+              Check the [workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details.`
+            })
