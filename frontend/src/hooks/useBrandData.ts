@@ -91,12 +91,42 @@ export const useBrandData = () => {
         medium_risk: 0,
         low_risk: 0
     });
+    const [enrichmentStats, setEnrichmentStats] = useState<{
+        total: number;
+        enriched: number;
+        pending: number;
+        isRunning: boolean;
+    }>({ total: 0, enriched: 0, pending: 0, isRunning: false });
     const [loading, setLoading] = useState(true);
+
+    const fetchEnrichmentStats = useCallback(async () => {
+        try {
+            const res = await fetch('http://localhost:8000/status');
+            const data = await res.json();
+            setEnrichmentStats({
+                total: data.total_products || 0,
+                enriched: data.enriched || 0,
+                pending: (data.total_products || 0) - (data.processed || 0),
+                isRunning: !!data.pipeline_running
+            });
+        } catch (err) {
+            console.warn('Local API Bridge not reachable');
+        }
+    }, []);
+
+    const runPipeline = async () => {
+        try {
+            await fetch('http://localhost:8000/pipeline/run', { method: 'POST' });
+            fetchEnrichmentStats();
+        } catch (err) {
+            alert('Error starting pipeline. Is api_bridge.py running?');
+        }
+    };
 
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            // Fetch all compliance audits with joined data
+            // Fetch compliance data
             const { data: auditData, error: aError } = await supabase
                 .from('compliance_audit')
                 .select(`
@@ -109,91 +139,57 @@ export const useBrandData = () => {
             if (aError) throw aError;
 
             // Stats counts
-            const { count: listingCount } = await supabase
-                .from('meli_listings')
-                .select('*', { count: 'exact', head: true });
-
-            const { count: activeCount } = await supabase
-                .from('compliance_audit')
-                .select('*', { count: 'exact', head: true })
-                .eq('status', 'PENDING');
-
-            const { count: cleanedCount } = await supabase
-                .from('compliance_audit')
-                .select('*', { count: 'exact', head: true })
-                .eq('status', 'REPORTED');
-
-            const { count: highRiskCount } = await supabase
-                .from('compliance_audit')
-                .select('*', { count: 'exact', head: true })
-                .eq('risk_level', 'Alto');
-
-            const { count: mediumRiskCount } = await supabase
-                .from('compliance_audit')
-                .select('*', { count: 'exact', head: true })
-                .eq('risk_level', 'Medio');
-
-            const { count: lowRiskCount } = await supabase
-                .from('compliance_audit')
-                .select('*', { count: 'exact', head: true })
-                .eq('risk_level', 'Bajo');
+            const { count: listingCount } = await supabase.from('meli_listings').select('*', { count: 'exact', head: true });
+            const { count: highRiskCount } = await supabase.from('compliance_audit').select('*', { count: 'exact', head: true }).eq('risk_level', 'Alto');
+            const { count: mediumRiskCount } = await supabase.from('compliance_audit').select('*', { count: 'exact', head: true }).eq('risk_level', 'Medio');
+            const { count: lowRiskCount } = await supabase.from('compliance_audit').select('*', { count: 'exact', head: true }).eq('risk_level', 'Bajo');
 
             if (auditData) {
-                const fetchedProducts: ProductAudit[] = auditData.map((a: any) => {
-                    const listing = a.meli_listings;
-                    const master = a.master_products;
-
-                    return {
-                        id: a.id,
-                        meli_id: listing?.meli_id || 'N/A',
-                        title: listing?.title || 'Unknown Listing',
-                        seller: listing?.seller_name || 'Unknown Seller',
-                        seller_location: listing?.seller_location || 'N/A',
-                        price: listing?.price || 0,
-                        thumbnail: listing?.thumbnail,
-                        url: listing?.url || '#',
-
-                        match_level: a.match_level || 0,
-                        fraud_score: a.fraud_score || 0,
-                        risk_level: a.risk_level || 'Bajo',
-                        status: a.status || 'PENDING',
-
-                        fields: parseFieldStatus(a, listing, master),
-
-                        master_product: master ? {
-                            id: master.id,
-                            product_name: master.product_name,
-                            brand: master.brand,
-                            list_price: master.list_price,
-                            fc_net: master.fc_net,
-                            ean: master.ean
-                        } : undefined,
-
-                        violation_details: a.violation_details
-                    };
-                });
-
+                const fetchedProducts: ProductAudit[] = auditData.map((a: any) => ({
+                    id: a.id,
+                    meli_id: a.meli_listings?.meli_id || 'N/A',
+                    title: a.meli_listings?.title || 'Unknown Listing',
+                    seller: a.meli_listings?.seller_name || 'Unknown Seller',
+                    seller_location: a.meli_listings?.seller_location || 'N/A',
+                    price: a.meli_listings?.price || 0,
+                    thumbnail: a.meli_listings?.thumbnail,
+                    url: a.meli_listings?.url || '#',
+                    match_level: a.match_level || 0,
+                    fraud_score: a.fraud_score || 0,
+                    risk_level: a.risk_level || 'Bajo',
+                    status: a.status || 'PENDING',
+                    fields: parseFieldStatus(a, a.meli_listings, a.master_products),
+                    master_product: a.master_products,
+                    violation_details: a.violation_details
+                }));
                 setProducts(fetchedProducts);
             }
 
             setStats({
                 scanned: listingCount || 0,
-                active: activeCount || 0,
-                cleaned: cleanedCount || 0,
+                active: 0,
+                cleaned: 0,
                 high_risk: highRiskCount || 0,
                 medium_risk: mediumRiskCount || 0,
                 low_risk: lowRiskCount || 0
             });
+
+            await fetchEnrichmentStats();
         } catch (err) {
             console.error('Fetch error:', err);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [fetchEnrichmentStats]);
 
     useEffect(() => {
         fetchData();
-    }, [fetchData]);
+        // Poll enrichment status every 5s if running
+        const interval = setInterval(() => {
+            fetchEnrichmentStats();
+        }, 5000);
+        return () => clearInterval(interval);
+    }, [fetchData, fetchEnrichmentStats]);
 
-    return { products, stats, loading, fetchData };
+    return { products, stats, enrichmentStats, loading, fetchData, runPipeline };
 };

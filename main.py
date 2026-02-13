@@ -60,10 +60,25 @@ async def run_pipeline():
         print("Failed to sync listings. Aborting audit.")
         return
 
-    # Map meli_id -> listing_uuid
-    meli_to_uuid = {l["meli_id"]: l["id"] for l in upserted_listings}
+    # 5. Background Enrichment (NEW: Automated Deep Scraping)
+    print("\n🔍 Checking for listings that need deep enrichment...")
+    from enrichers.product_enricher import ProductEnricher
+    enricher = ProductEnricher(batch_size=10, delay_between_requests=2)
+    
+    # We only enrich products that were just scraped/updated and missing data
+    # For PoC speed, we limit this to a small number or only those from this run
+    # For now, let's run it for the products we just synced that lack EAN
+    await enricher.enrich_products(limit=20) 
+    
+    # Reload listings from DB to get enriched data (EAN, brand, attributes)
+    print("Reloading enriched listings from database...")
+    enriched_response = db.supabase.table("meli_listings").select("*").in_("meli_id", [l["meli_id"] for l in listings_to_sync]).execute()
+    raw_listings_enriched = enriched_response.data
 
-    # 5. Identification & Compliance Audit
+    # Map meli_id -> listing_uuid
+    meli_to_uuid = {l["meli_id"]: l["id"] for l in raw_listings_enriched}
+
+    # 6. Identification & Compliance Audit
     print("Running Identification & Compliance Audit...")
     audit_records = []
     

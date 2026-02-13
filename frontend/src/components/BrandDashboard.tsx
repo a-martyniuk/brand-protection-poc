@@ -7,11 +7,10 @@ import ProductListView from './ProductListView';
 import AnalyticsView from './AnalyticsView';
 
 const BrandDashboard: React.FC = () => {
-    const { products, stats, loading, fetchData } = useBrandData();
+    const { products, stats, enrichmentStats, loading, fetchData, runPipeline } = useBrandData();
     const [activeTab, setActiveTab] = useState<'products' | 'analytics'>('products');
 
     const handleExport = () => {
-        // Convert products to legacy format for export compatibility
         const legacyFormat = products.map(p => ({
             id: p.id,
             meli_id: p.meli_id,
@@ -42,21 +41,49 @@ const BrandDashboard: React.FC = () => {
                             <span className="text-[10px] text-brand-400 font-black uppercase tracking-[0.2em]">MercadoLibre Arg PoC</span>
                         </div>
                     </div>
+
                     <div className="flex items-center gap-4">
+                        {/* Enrichment Status */}
+                        <div className="hidden lg:flex flex-col items-end mr-4">
+                            <div className="flex items-center gap-2">
+                                <span className={`w-2 h-2 rounded-full ${enrichmentStats.isRunning ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'}`}></span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                    Enriquecimiento: {Math.round((enrichmentStats.enriched / (enrichmentStats.total || 1)) * 100)}%
+                                </span>
+                            </div>
+                            <span className="text-[9px] text-slate-500 font-medium">
+                                {enrichmentStats.enriched} Enriquecidos / {enrichmentStats.pending} Pendientes
+                            </span>
+                        </div>
+
+                        <button
+                            onClick={runPipeline}
+                            disabled={enrichmentStats.isRunning}
+                            className={`flex items-center gap-2 px-5 py-2 rounded-full border transition-all active:scale-95 disabled:opacity-50 ${enrichmentStats.isRunning
+                                    ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+                                    : 'bg-brand-500 hover:bg-brand-600 text-white border-brand-400/30'
+                                }`}
+                        >
+                            <TrendingUp className={`w-3.5 h-3.5 ${enrichmentStats.isRunning ? 'animate-bounce' : ''}`} />
+                            <span className="text-xs font-bold uppercase tracking-wider">
+                                {enrichmentStats.isRunning ? 'Running Pipeline...' : 'Run Pipeline'}
+                            </span>
+                        </button>
+
                         <button
                             onClick={handleExport}
-                            className="flex items-center gap-2 bg-brand-500/10 hover:bg-brand-500/20 text-brand-400 px-5 py-2 rounded-full border border-brand-500/30 transition-all hover:shadow-[0_0_20px_rgba(var(--brand-500),0.15)] active:scale-95"
+                            className="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-5 py-2 rounded-full border border-white/10 transition-all active:scale-95"
                         >
                             <ExternalLink className="w-3.5 h-3.5" />
-                            <span className="text-xs font-bold uppercase tracking-wider">Export</span>
+                            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Export</span>
                         </button>
+
                         <button
                             onClick={fetchData}
                             disabled={loading}
                             className="group flex items-center gap-2 bg-white/5 hover:bg-white/10 px-5 py-2 rounded-full border border-white/10 transition-all active:scale-95 disabled:opacity-50"
                         >
                             <Search className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : 'text-brand-400'}`} />
-                            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Refresh</span>
                         </button>
                     </div>
                 </div>

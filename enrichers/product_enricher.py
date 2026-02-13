@@ -224,42 +224,59 @@ class ProductEnricher:
             # Wait for specs table to load (increased timeout)
             await page.wait_for_selector('.andes-table__row, .ui-pdp-specs__table__row', timeout=30000)
             
-            # Extract EAN and specs
+            # Extract EAN, specs and description
             details = await page.evaluate("""
                 () => {
                     const rows = document.querySelectorAll('.andes-table__row, .ui-pdp-specs__table__row');
                     let ean = null;
                     let specs = {};
                     
+                    // Extract All Specs
                     for (const row of rows) {
-                        const text = row.innerText.toLowerCase();
+                        const labelEl = row.querySelector('.andes-table__column--label, th');
+                        const valueEl = row.querySelector('.andes-table__column--value, td');
                         
-                        // EAN extraction
-                        if (text.includes('ean') || text.includes('gtin') || text.includes('código universal')) {
-                            const valueEl = row.querySelector('.andes-table__column--value, td:last-child');
-                            if (valueEl) ean = valueEl.innerText.trim();
-                        }
-                        
-                        // Brand extraction
-                        if (text.includes('marca')) {
-                            const valueEl = row.querySelector('.andes-table__column--value, td:last-child');
-                            if (valueEl) specs.brand = valueEl.innerText.trim();
-                        }
-                        
-                        // Weight/Volume extraction
-                        if (text.includes('peso neto') || text.includes('contenido neto') || text.includes('volumen')) {
-                            const valueEl = row.querySelector('.andes-table__column--value, td:last-child');
-                            if (valueEl) specs.weight = valueEl.innerText.trim();
-                        }
-                        
-                        // Format extraction
-                        if (text.includes('formato')) {
-                            const valueEl = row.querySelector('.andes-table__column--value, td:last-child');
-                            if (valueEl) specs.format = valueEl.innerText.trim();
+                        if (labelEl && valueEl) {
+                            const label = labelEl.innerText.trim();
+                            const value = valueEl.innerText.trim();
+                            const labelLower = label.toLowerCase();
+                            
+                            // Store raw spec
+                            specs[label] = value;
+                            
+                            // Normalize key fields for easier access
+                            // EAN / GTIN
+                            if (labelLower.includes('ean') || labelLower.includes('gtin') || labelLower.includes('código universal')) {
+                                ean = value;
+                            }
+                            
+                            // Units per pack
+                            if (labelLower.includes('unidades por pack') || labelLower.includes('unidades por envase') || labelLower.includes('cantidad de unidades')) {
+                                specs.units_per_pack = value;
+                            }
+                            
+                            // Substance / Type
+                            if (labelLower.includes('tipo de leche') || labelLower.includes('tipo de suplemento') || labelLower.includes('sustancia') || labelLower.includes('tipo de producto')) {
+                                specs.substance = value;
+                            }
+                            
+                            // Weight / Volume
+                            if (labelLower.includes('peso neto') || labelLower.includes('contenido neto') || labelLower.includes('volumen')) {
+                                specs.net_content = value;
+                            }
+                            
+                            // Stage / Age
+                            if (labelLower.includes('etapa') || labelLower.includes('edad mínima') || labelLower.includes('edad recomendada')) {
+                                specs.stage = value;
+                            }
                         }
                     }
+
+                    // Extract Description
+                    const descEl = document.querySelector('.ui-pdp-description__content');
+                    const description = descEl ? descEl.innerText.trim() : null;
                     
-                    return { ean, specs };
+                    return { ean, specs, description };
                 }
             """)
             
@@ -286,17 +303,20 @@ class ProductEnricher:
             if details.get('specs', {}).get('brand'):
                 update_data['brand_detected'] = details['specs']['brand']
             
-            # Update attributes with additional specs
-            if details.get('specs'):
+            # Update attributes with all specs and description
+            if details.get('specs') or details.get('description'):
                 # Fetch current attributes
                 current = self.db.supabase.table("meli_listings").select("attributes").eq("id", product_id).execute()
                 current_attrs = current.data[0]['attributes'] if current.data else {}
                 
-                # Merge new specs
-                if details['specs'].get('weight'):
-                    current_attrs['weight'] = details['specs']['weight']
-                if details['specs'].get('format'):
-                    current_attrs['format'] = details['specs']['format']
+                # Merge ALL specs from details
+                if details.get('specs'):
+                    for key, value in details['specs'].items():
+                        current_attrs[key] = value
+                
+                # Add description
+                if details.get('description'):
+                    current_attrs['description_long'] = details['description']
                 
                 update_data['attributes'] = current_attrs
             

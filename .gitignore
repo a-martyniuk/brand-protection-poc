@@ -20,6 +20,7 @@ data/*.json
 !data/raw_products.json
 *.xlsx
 *.log
+enricher_status.json
 
 # IDE
 .vscode/
