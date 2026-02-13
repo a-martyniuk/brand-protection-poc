@@ -9,7 +9,7 @@ WITH seller_metrics AS (
         COUNT(a.id) FILTER (WHERE a.fraud_score >= 30) as total_violations,
         COUNT(a.id) FILTER (WHERE a.is_price_ok = false) as price_violations,
         COUNT(a.id) FILTER (WHERE a.fraud_score >= 60 AND a.is_brand_correct = false) as brand_risk_violations,
-        COUNT(a.id) FILTER (WHERE a.fraud_score >= 60 AND (a.details->>'volumetric_mismatch' IS NOT NULL)) as format_fraud_violations,
+        COUNT(a.id) FILTER (WHERE a.fraud_score >= 60 AND (a.violation_details->>'volumetric_mismatch' IS NOT NULL)) as format_fraud_violations,
         AVG(a.fraud_score) as avg_fraud_score,
         MAX(a.processed_at) as last_violation_at
     FROM 

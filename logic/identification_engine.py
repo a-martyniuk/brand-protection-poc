@@ -117,21 +117,32 @@ class IdentificationEngine:
     def calculate_attribute_score(self, listing_attrs, master_product):
         """
         Calculates a compatibility score based on structured attributes + FC Validation.
+        Also implements strict rejection for known false positives (e.g., pet food).
         """
         score = 100
         matches = 0
         
+        # 0. Anti-False Positive Keywords (Hard Rejection)
+        title_lower = listing_attrs.get("title", "").lower()
+        exclusion_keywords = ["perro", "gato", "mascotas", "vitalcan", "sieger", "dog chow", "cat chow"]
+        if any(kw in title_lower for kw in exclusion_keywords):
+            return 0, 0 # Hard rejection for pet products
+
         # 1. Brand Match (Critical)
         l_brand = (listing_attrs.get("brand") or listing_attrs.get("marca") or "").lower()
         m_brand = (master_product.get("brand") or "").lower()
+        
         if l_brand and m_brand:
-            if l_brand not in m_brand and m_brand not in l_brand:
-                score -= 40 
+            # If brands are explicitly different and non-overlapping, it's a mismatch
+            if l_brand != m_brand and l_brand not in m_brand and m_brand not in l_brand:
+                # SPECIAL CASE: Nutricia brands vs known pet brands
+                if "vitalcan" in l_brand or "vitalis" in l_brand:
+                    return 0, 0 # Hard rejection
+                score -= 60 # Increased penalty for brand mismatch
             else:
                 matches += 1
 
         # 2. Volumetric/FC Validation (Updated with structured data)
-        listing_attrs["title"] = listing_attrs.get("title", "") # Ensure title is available
         if not self.validate_volumetric_match(listing_attrs, master_product):
             score -= 60 # Heavy penalty for format fraud
         else:
@@ -140,7 +151,7 @@ class IdentificationEngine:
         # 3. Stage Match
         m_stage = str(master_product.get("stage") or "").lower()
         if m_stage and m_stage != "nan" and m_stage != "none":
-            l_text = (listing_attrs.get("title", "") + " " + str(listing_attrs.get("stage", ""))).lower()
+            l_text = (title_lower + " " + str(listing_attrs.get("stage", ""))).lower()
             if m_stage in l_text:
                 matches += 1
             else:
@@ -186,13 +197,13 @@ class IdentificationEngine:
                     max_total_score = total_score
                     best_match = mp
 
-            if max_total_score > 80: # Slightly relaxed threshold due to strict volumetric check
+            if max_total_score >= 80: 
                 match_level = 2
-            elif max_total_score > 60: 
+            elif max_total_score >= 70: # Increased from 60 to prevent over-matching
                 match_level = 3
             else:
                 match_level = 0
-                best_match = None if max_total_score < 40 else best_match
+                best_match = None if max_total_score < 50 else best_match # Increased floor from 40
 
         # 3. Generate Full Audit
         audit = self.generate_audit_report(listing, best_match, match_level)
