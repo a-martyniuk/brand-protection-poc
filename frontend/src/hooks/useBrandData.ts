@@ -30,7 +30,9 @@ function parseFieldStatus(audit: any, listing: any, master: any): ProductAudit['
                 : (master?.list_price ? `$${master.list_price.toLocaleString('es-AR')}` : 'N/A'),
             status: details.low_price ? 'rejected' : 'approved',
             details: details.low_price
-                ? `Price $${listing?.price?.toLocaleString('es-AR')} is below minimum benchmark $${details.low_price.min_allowed?.toLocaleString('es-AR')}`
+                ? (details.unit_price_info?.is_pack
+                    ? `Unit Price $${details.unit_price_info.unit_price?.toLocaleString('es-AR')} is below benchmark $${details.low_price.min_allowed?.toLocaleString('es-AR')}`
+                    : `Price $${listing?.price?.toLocaleString('es-AR')} is below minimum benchmark $${details.low_price.min_allowed?.toLocaleString('es-AR')}`)
                 : (details.unit_price_info?.is_pack ? `Unit Price: $${details.unit_price_info.unit_price?.toLocaleString('es-AR')}` : undefined),
             score_impact: details.low_price ? 100 : 0,
             unit_price: details.unit_price_info?.unit_price,
