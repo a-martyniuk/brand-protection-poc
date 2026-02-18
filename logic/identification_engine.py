@@ -177,7 +177,13 @@ class IdentificationEngine:
             # Baby Gear & Toys (Non-Nutricia)
             "cochecito", "cuna", "butaca", "bouncer", "mecedora", "juguete", "lego", "playmobil", "muñeca",
             # Automotive & Industrial (Conflicts with MCT Oil / Aceite de Lorenzo)
-            "motor", "auto", "camion", "moto ", "lubricante", "filtro aceite", "shell helix", "castrol", "motul", "motorcraft"
+            "motor", "auto", "camion", "moto ", "lubricante", "filtro aceite", "shell helix", "castrol", "motul", "motorcraft",
+            # Furniture & Office (Conflicts with GMPro)
+            "escritorio", "mesa", "silla", "mueble", "repisa", "estante", "oficina", "biblioteca", "rack",
+            # Gaming & Tech (Conflicts with GMPro)
+            "gamer", "rgb", "led", "pc", "computadora", "teclado", "mouse", "auriculares", "monitor", "joystick", "consola", "ps4", "ps5", "xbox",
+            # Electronics & Home (Conflicts with GMPro)
+            "electrico", "altura regulable", "cable", "usb", "bateria", "cargador", "lampara"
         ]
         if any(kw in title_lower for kw in exclusion_keywords):
             return 0, 0, None # Hard rejection for pet or unrelated pharma products
@@ -215,6 +221,14 @@ class IdentificationEngine:
         # This prevents generic "infant" or "protein" products from other brands from matching
         if m_brand not in title_lower and m_brand not in l_brand:
             return 0, 0, l_brand # Hard rejection for lack of brand intent
+            
+        # 1.1 Category Consistency check
+        # If the master is a supplement/formula but the title strongly indicates furniture/tech
+        m_substance = (master_product.get("substance") or "").lower()
+        if m_substance in ["polvo", "liquido", "formula", "suplemento"]:
+            tech_indicators = ["gamer", "rgb", "escritorio", "monitor", "pc", "teclado"]
+            if any(ti in title_lower for ti in tech_indicators):
+                return 0, 0, "Categorical Mismatch"
 
         # 2. Volumetric/FC Validation (Updated with structured data)
         vol_match, detected_kg, detected_qty = self.validate_volumetric_match(listing_attrs, master_product)
