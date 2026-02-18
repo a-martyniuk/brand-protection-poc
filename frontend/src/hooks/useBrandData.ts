@@ -39,7 +39,11 @@ function parseFieldStatus(audit: any, listing: any, master: any): ProductAudit['
                 ? (typeof details.volumetric_mismatch.detected_in_listing === 'number'
                     ? `${details.volumetric_mismatch.detected_in_listing} kg`
                     : details.volumetric_mismatch.detected_in_listing)
-                : 'Not detected',
+                : (details.detected_volume && details.detected_volume !== 'Not detected'
+                    ? (typeof details.detected_volume === 'number'
+                        ? `${details.detected_volume} kg`
+                        : String(details.detected_volume))
+                    : 'Not detected'),
             master: details.volumetric_mismatch?.expected_kg
                 ? `${details.volumetric_mismatch.expected_kg} kg`
                 : (master?.fc_net ? `${master.fc_net} kg` : 'N/A'),

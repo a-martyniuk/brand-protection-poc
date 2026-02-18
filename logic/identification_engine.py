@@ -74,7 +74,7 @@ class IdentificationEngine:
         m_substance = (master_product.get("substance") or "").lower()
         m_units = int(master_product.get("units_per_pack") or 1)
         
-        if m_net == 0: return True
+        if m_net == 0: return True, 0
         
         # 1. Try to use Enriched Structured Attributes first
         l_net_str = listing_attrs.get("net_content") or listing_attrs.get("weight") or listing_attrs.get("peso neto")
@@ -109,10 +109,10 @@ class IdentificationEngine:
             measures = self.extract_measures(full_text, substance_hint=m_substance)
             l_total_kg = measures.get("total_kg", 0)
         
-        if l_total_kg == 0: return True # Could not determine listing volume
+        if l_total_kg == 0: return True, 0 # Could not determine listing volume
         
         diff = abs(l_total_kg - m_net)
-        return diff < (m_net * 0.10) # Reduced tolerance to 10% for enriched data clarity
+        return (diff < (m_net * 0.10)), l_total_kg
 
     def calculate_attribute_score(self, listing_attrs, master_product):
         """
@@ -179,7 +179,8 @@ class IdentificationEngine:
             return 0, 0 # Hard rejection for lack of brand intent
 
         # 2. Volumetric/FC Validation (Updated with structured data)
-        if not self.validate_volumetric_match(listing_attrs, master_product):
+        vol_match, detected_kg = self.validate_volumetric_match(listing_attrs, master_product)
+        if not vol_match:
             score -= 60 # Heavy penalty for format fraud
         else:
             matches += 1
@@ -330,12 +331,17 @@ class IdentificationEngine:
                 }
 
         # Rule D: Volumetric Validation (Enhanced Format Fraud Detection)
-        if not self.validate_volumetric_match(listing_attrs, master_product):
-            m_net = float(master_product.get("fc_net") or 0)
+        vol_match, detected_kg = self.validate_volumetric_match(listing_attrs, master_product)
+        m_net = float(master_product.get("fc_net") or 0)
+        
+        # Always include detected volume for UI clarity
+        details["detected_volume"] = detected_kg if detected_kg > 0 else (listing_attrs.get("net_content") or "Not detected")
+        
+        if not vol_match:
             score += 100 # Direct 100 for format fraud
             details["volumetric_mismatch"] = {
                 "expected_kg": m_net,
-                "detected_in_listing": listing_attrs.get("net_content") or "unmatched"
+                "detected_in_listing": detected_kg if detected_kg > 0 else (listing_attrs.get("net_content") or "unmatched")
             }
 
         # Rule E: Restricted SKU
