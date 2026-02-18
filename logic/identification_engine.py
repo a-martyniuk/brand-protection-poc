@@ -18,24 +18,38 @@ class IdentificationEngine:
         text = text.lower()
         substance_hint = (substance_hint or "").lower()
         
-        # 1. Detect Pack Patterns like "24 bricks x 200ml" or "pack x 4 800g"
+        # 1. Detect Quantity/Pack Patterns
         qty = 1
+        # Match patterns like: Pack X 4, Pack de 6, 12 unidades, 24u, x24, x 4
+        # We avoid matching the volume (e.g., 800g) as quantity by using word boundaries or specific markers
+        qty_patterns = [
+            r'pack\s*x?\s*(\d+)',           # Pack X 4, Pack 4
+            r'pack\s+de\s+(\d+)',          # Pack de 6
+            r'(\d+)\s*(?:unidades|units|u|un)\b', # 12 unidades, 24u
+            r'\bx\s?(\d+)\b'               # x 4, x24 (but not 800x600)
+        ]
+        
+        for p in qty_patterns:
+            qty_match = re.search(p, text)
+            if qty_match:
+                # Extra check: ensure we didn't just grab part of a volume (e.g., 800g)
+                candidate = int(qty_match.group(1))
+                if candidate > 0 and candidate < 200: # Sanity check for quantity
+                    # Ensure it's not immediately followed by a unit of measure
+                    if not re.search(f'{candidate}\\s?(ml|gr|g|kg|l)', text):
+                        qty = candidate
+                        break
+            
+        # 2. Find Volume/Weight: [number] [ml|g|kg|gr]
         unit_val = 0
         unit_type = None
-        
-        # Try to find quantity: [number] [space] [bricks|unidades|pack|u|x]
-        qty_match = re.search(r'(\d+)\s?(bricks|unidades|units|u|bricks|pack|un|x)', text)
-        if qty_match:
-            qty = int(qty_match.group(1))
-            
-        # Try to find volume: [number] [ml|g|kg|gr]
-        vol_match = re.search(r'(\d+)\s?(ml|gr|g|kg)', text)
+        vol_match = re.search(r'(\d+[.,]?\d*)\s?(ml|gr|g|kg|l)\b', text)
         if vol_match:
-            unit_val = float(vol_match.group(1))
+            unit_val = float(vol_match.group(1).replace(',', '.'))
             unit_type = vol_match.group(2)
-            if unit_type == 'kg':
+            if unit_type == 'kg' or unit_type == 'l':
                 unit_val *= 1000
-                unit_type = 'g'
+                unit_type = 'g' if unit_type == 'kg' else 'ml'
             elif unit_type == 'gr':
                 unit_type = 'g'
 
@@ -45,8 +59,6 @@ class IdentificationEngine:
             if unit_type == 'g':
                 total_kg = (unit_val * qty) / 1000
             elif unit_type == 'ml':
-                # Liquid Density Factor (User insight: 200ml -> 0.217kg)
-                # We apply it if the substance is liquid or inferred to be liquid
                 multiplier = 1.085 if "liquid" in substance_hint or "liquido" in substance_hint else 1.0
                 total_kg = ((unit_val * qty) / 1000) * multiplier
                 
@@ -68,51 +80,58 @@ class IdentificationEngine:
     def validate_volumetric_match(self, listing_attrs, master_product):
         """
         Uses FC (Net) and units per pack to validate if the listing volume matches the master SKU.
-        Prioritizes enriched structured attributes over regex text extraction.
+        Prioritizes enriched structured attributes but cross-references title for multipliers.
         """
         m_net = float(master_product.get("fc_net") or 0)
         m_substance = (master_product.get("substance") or "").lower()
-        m_units = int(master_product.get("units_per_pack") or 1)
         
         if m_net == 0: return True, 0
         
-        # 1. Try to use Enriched Structured Attributes first
+        # 1. Try to use Enriched Structured Attributes for Volume
         l_net_str = listing_attrs.get("net_content") or listing_attrs.get("weight") or listing_attrs.get("peso neto")
         l_units_str = listing_attrs.get("units_per_pack") or listing_attrs.get("unidades por pack") or listing_attrs.get("cantidad de unidades")
         
         l_total_kg = 0.0
+        l_qty = 1
+        
+        # Get structured quantity if available
+        if l_units_str:
+            qty_match = re.search(r'(\d+)', str(l_units_str))
+            if qty_match: l_qty = int(qty_match.group(1))
+        
+        # If quantity is still 1, scan the title for potential "Pack X N" patterns
+        title = (listing_attrs.get("title") or "").lower()
+        if l_qty == 1 and title:
+            measures_title = self.extract_measures(title, substance_hint=m_substance)
+            # If extract_measures found a qty > 1, use it
+            if measures_title.get("qty", 1) > 1:
+                l_qty = measures_title["qty"]
         
         if l_net_str:
             # Simple extraction from structured "800g" or "1kg"
-            val_match = re.search(r'(\d+[.,]?\d*)\s?(ml|gr|g|kg)', str(l_net_str).lower())
+            val_match = re.search(r'(\d+[.,]?\d*)\s?(ml|gr|g|kg|l)', str(l_net_str).lower())
             if val_match:
                 val = float(val_match.group(1).replace(',', '.'))
                 unit = val_match.group(2)
                 
-                l_qty = 1
-                if l_units_str:
-                    qty_match = re.search(r'(\d+)', str(l_units_str))
-                    if qty_match: l_qty = int(qty_match.group(1))
-                
-                # Convert to KG
+                # Convert to KG using combined quantity
                 if unit in ['g', 'gr']:
                     l_total_kg = (val * l_qty) / 1000
-                elif unit == 'kg':
+                elif unit in ['kg', 'l']:
                     l_total_kg = val * l_qty
                 elif unit == 'ml':
                     multiplier = 1.085 if "liquid" in m_substance or "liquido" in m_substance else 1.0
                     l_total_kg = ((val * l_qty) / 1000) * multiplier
 
-        # 2. Fallback to Regex on Title if structured data failed
+        # 2. Final Fallback: Fully Regex Title if still undetermined
         if l_total_kg == 0:
-            full_text = (listing_attrs.get("title", "") + " " + (listing_attrs.get("weight") or "")).lower()
-            measures = self.extract_measures(full_text, substance_hint=m_substance)
+            measures = self.extract_measures(title, substance_hint=m_substance)
             l_total_kg = measures.get("total_kg", 0)
         
-        if l_total_kg == 0: return True, 0 # Could not determine listing volume
+        if l_total_kg == 0: return True, 0 
         
         diff = abs(l_total_kg - m_net)
-        return (diff < (m_net * 0.10)), l_total_kg
+        return (diff < (m_net * 0.15)), l_total_kg # Increased tolerance to 15% for rounding/density variations
 
     def calculate_attribute_score(self, listing_attrs, master_product):
         """
