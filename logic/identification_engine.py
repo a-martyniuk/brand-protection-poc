@@ -128,10 +128,10 @@ class IdentificationEngine:
             measures = self.extract_measures(title, substance_hint=m_substance)
             l_total_kg = measures.get("total_kg", 0)
         
-        if l_total_kg == 0: return True, 0 
+        if l_total_kg == 0: return True, 0, l_qty 
         
         diff = abs(l_total_kg - m_net)
-        return (diff < (m_net * 0.15)), l_total_kg # Increased tolerance to 15% for rounding/density variations
+        return (diff < (m_net * 0.15)), l_total_kg, l_qty
 
     def calculate_attribute_score(self, listing_attrs, master_product):
         """
@@ -198,7 +198,7 @@ class IdentificationEngine:
             return 0, 0, l_brand # Hard rejection for lack of brand intent
 
         # 2. Volumetric/FC Validation (Updated with structured data)
-        vol_match, detected_kg = self.validate_volumetric_match(listing_attrs, master_product)
+        vol_match, detected_kg, detected_qty = self.validate_volumetric_match(listing_attrs, master_product)
         if not vol_match:
             score -= 60 # Heavy penalty for format fraud
         else:
@@ -339,26 +339,40 @@ class IdentificationEngine:
 
         # Rule C: Price Policy (ZERO TOLERANCE)
         # Using list_price from master_products as the absolute minimum
+        # NEW: Volumetric Validation (Enhanced Format Fraud Detection) - Moved UP to use 'detected_qty' in price calc
+        vol_match, detected_kg, detected_qty = self.validate_volumetric_match(listing_attrs, master_product)
+        m_net = float(master_product.get("fc_net") or 0)
+        m_units = int(master_product.get("units_per_pack") or 1)
+        
+        # Always include detected volume for UI clarity
+        details["detected_volume"] = detected_kg if detected_kg > 0 else (listing_attrs.get("net_content") or "Not detected")
+        details["detected_qty"] = detected_qty
+        
         if master_product.get("list_price"):
             actual_price = float(listing.get("price", 0))
+            # Calculate Price per Unit (Standardized)
+            unit_price = actual_price / detected_qty if detected_qty > 0 else actual_price
             min_price = float(master_product["list_price"])
             
-            if actual_price < min_price:
+            # If the quantity doesn't match the master SKU, note it
+            if detected_qty != m_units:
+                details["non_standard_qty"] = {
+                    "listing_qty": detected_qty,
+                    "master_qty": m_units,
+                    "unit_price_calculated": round(unit_price, 2)
+                }
+
+            if unit_price < min_price:
                 is_price_ok = False
                 score += 100 # Direct 100 for price breaking
                 details["low_price"] = {
                     "min_allowed": min_price, 
-                    "actual_price": actual_price,
-                    "diff": round(min_price - actual_price, 2)
+                    "actual_unit_price": round(unit_price, 2),
+                    "total_price": actual_price,
+                    "diff": round(min_price - unit_price, 2)
                 }
 
-        # Rule D: Volumetric Validation (Enhanced Format Fraud Detection)
-        vol_match, detected_kg = self.validate_volumetric_match(listing_attrs, master_product)
-        m_net = float(master_product.get("fc_net") or 0)
-        
-        # Always include detected volume for UI clarity
-        details["detected_volume"] = detected_kg if detected_kg > 0 else (listing_attrs.get("net_content") or "Not detected")
-        
+        # Rule D: Volumetric Match result (calculated above)
         if not vol_match:
             score += 100 # Direct 100 for format fraud
             details["volumetric_mismatch"] = {
