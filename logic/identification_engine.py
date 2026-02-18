@@ -147,8 +147,10 @@ class IdentificationEngine:
         
         if l_total_kg == 0: return True, 0, l_qty 
         
-        diff = abs(l_total_kg - m_net)
-        return (diff < (m_net * 0.15)), l_total_kg, l_qty
+        # Scaling master weight by detected quantity for benchmark
+        expected_total_kg = m_net * l_qty
+        diff = abs(l_total_kg - expected_total_kg)
+        return (diff < (expected_total_kg * 0.15)), l_total_kg, l_qty
 
     def calculate_attribute_score(self, listing_attrs, master_product):
         """
@@ -392,8 +394,11 @@ class IdentificationEngine:
         # Rule D: Volumetric Match result (calculated above)
         if not vol_match:
             score += 100 # Direct 100 for format fraud
+            expected_total_kg = m_net * detected_qty if detected_qty > 0 else m_net
             details["volumetric_mismatch"] = {
-                "expected_kg": m_net,
+                "expected_total_kg": round(expected_total_kg, 2),
+                "unit_master_kg": m_net,
+                "detected_qty": detected_qty,
                 "detected_in_listing": detected_kg if detected_kg > 0 else (listing_attrs.get("net_content") or "unmatched")
             }
 
