@@ -46,33 +46,34 @@ class MeliAPIScraper:
                     # Wait for results or empty state
                     await page.wait_for_selector(".ui-search-layout__item, .ui-search-item__title", timeout=15000)
                     
-                    # Extract all data directly from the DOM
+                    # Extract all data directly from the DOM and Preloaded State
                     page_results = await page.evaluate("""
                         (categoryName) => {
                             const items = document.querySelectorAll('.ui-search-layout__item, .ui-search-result');
                             
-                            // Try to find global preloaded state for better attributes
-                            let globalData = {};
+                            let preloadedState = {};
                             try {
-                                const scripts = document.querySelectorAll('script');
-                                for (const s of scripts) {
-                                    if (s.innerText.includes('window.__PRELOADED_STATE__')) {
-                                        const jsonStr = s.innerText.split('window.__PRELOADED_STATE__ = ')[1].split(';')[0];
-                                        globalData = JSON.parse(jsonStr);
-                                        break;
-                                    }
+                                const script = Array.from(document.querySelectorAll('script'))
+                                    .find(s => s.innerText.includes('window.__PRELOADED_STATE__'));
+                                if (script) {
+                                    const jsonStr = script.innerText.split('window.__PRELOADED_STATE__ = ')[1].split(';')[0];
+                                    preloadedState = JSON.parse(jsonStr);
                                 }
                             } catch(e) {}
 
-                            const results = Array.from(items).map(item => {
+                            // Direct access to results in preloaded state if possible
+                            const stateResults = preloadedState.results || [];
+
+                            return Array.from(items).map((item, index) => {
                                 const titleEl = item.querySelector('.ui-search-item__title, .poly-component__title, h2');
                                 const priceEl = item.querySelector('.andes-money-amount__fraction');
                                 const linkEl = item.querySelector('a.ui-search-link, a.poly-component__title, a');
                                 const imgEl = item.querySelector('img.ui-search-result-image__element, .poly-component__picture img, img');
                                 
-                                // Extract simple attributes from visible tags if possible
+                                // Enhanced mapping from preloaded state
+                                const stateItem = stateResults[index] || {};
+                                
                                 const attributes = {};
-                                // Try multiple selector patterns for attributes (Meli A/B testing)
                                 const attributeSelectors = [
                                     '.ui-search-item__group__element--attributes',
                                     '.poly-attributes-list__item',
@@ -92,49 +93,33 @@ class MeliAPIScraper:
                                             if (lowerText.includes('neto') || lowerText.includes('peso') || lowerText.includes('gr') || lowerText.includes('ml')) {
                                                 attributes.weight = text;
                                             }
-                                            if (lowerText.includes('etapa')) {
-                                                attributes.stage = text;
-                                            }
                                         });
                                         if (Object.keys(attributes).length > 0) break;
                                     }
                                 }
 
-                                // Seller
-                                let seller = 'N/A';
-                                const sellerSelectors = ['.ui-search-item__group__element--seller', '.poly-component__seller', '.ui-search-official-store-item__link'];
-                                for (const s of sellerSelectors) {
-                                    const el = item.querySelector(s);
-                                    if (el && el.innerText.trim()) {
-                                        seller = el.innerText.replace(/por\\s+/i, '').trim();
-                                        break;
-                                    }
-                                }
+                                // Seller & Reputation
+                                const seller = stateItem.seller || {};
+                                const reputation = seller.seller_reputation || {};
                                 
-                                // Location
-                                let loc = 'N/A';
-                                const locSelectors = ['.ui-search-item__location', '.poly-component__location'];
-                                for (const s of locSelectors) {
-                                    const el = item.querySelector(s);
-                                    if (el && el.innerText.trim()) {
-                                        loc = el.innerText.trim();
-                                        break;
-                                    }
-                                }
-
                                 return {
-                                    title: titleEl ? titleEl.innerText : 'N/A',
-                                    price_str: priceEl ? priceEl.innerText.replace(/\\D/g, '') : '0',
-                                    url: linkEl ? linkEl.href : 'N/A',
-                                    thumbnail: imgEl ? imgEl.src : null,
-                                    seller_name: seller,
-                                    seller_location: loc,
+                                    title: titleEl ? titleEl.innerText : (stateItem.title || 'N/A'),
+                                    price_str: priceEl ? priceEl.innerText.replace(/\\D/g, '') : (stateItem.price || '0'),
+                                    url: linkEl ? linkEl.href : (stateItem.permalink || 'N/A'),
+                                    thumbnail: imgEl ? imgEl.src : (stateItem.thumbnail || null),
+                                    seller_id: seller.id || 'N/A',
+                                    seller_name: seller.nickname || 'N/A',
+                                    is_official_store: !!seller.official_store_id,
+                                    official_store_id: seller.official_store_id || null,
+                                    seller_reputation: {
+                                        level: reputation.level_id || 'N/A',
+                                        power_seller: reputation.power_seller_status || null,
+                                        transactions: reputation.transactions || {}
+                                    },
                                     category: categoryName,
                                     attributes: attributes
                                 };
                             });
-
-                            return results;
                         }
                     """, query)
                     
@@ -151,26 +136,29 @@ class MeliAPIScraper:
                         # Capture and normalize simple attributes if available in listing
                         attributes = r.get("attributes", {})
                         
-                        # Extract brand_detected from attributes
-                        brand_detected = attributes.get("brand")
-                        
                         # Clean URL (remove tracking parameters)
                         url = r["url"]
                         if '?' in url:
-                            url = url.split('?')[0]  # Remove query parameters
+                            url = url.split('?')[0]
+                        
+                        # NEW: Normalize attributes before storage
+                        norm_attrs = self.normalize_attributes(r["title"], attributes)
                         
                         self.results.append({
                             "meli_id": meli_id,
                             "title": r["title"],
                             "price": float(r["price_str"]) if r["price_str"] else 0.0,
-                            "url": url,  # Clean URL
+                            "url": url,
                             "thumbnail": r["thumbnail"],
+                            "seller_id": r["seller_id"],
                             "seller_name": r["seller_name"],
-                            "seller_location": r["seller_location"],
+                            "is_official_store": r["is_official_store"],
+                            "official_store_id": r["official_store_id"],
+                            "seller_reputation": r["seller_reputation"],
                             "category": r["category"],
-                            "brand_detected": brand_detected,  # NEW: Extract brand from attributes
-                            "ean_published": None,  # Will be enriched later by enricher
-                            "attributes": attributes, # New field
+                            "brand_detected": norm_attrs.get("brand"),
+                            "ean_published": None,
+                            "attributes": norm_attrs,
                             "official_product_id": item.get("official_id")
                         })
                         
@@ -179,6 +167,31 @@ class MeliAPIScraper:
 
             await browser.close()
         return self.results
+
+    def normalize_attributes(self, title, attributes):
+        """
+        Pre-identification normalization of weights and brands.
+        """
+        # 1. Weight Normalization (e.g., '800 gr' -> 0.8)
+        full_text = f"{title} {attributes.get('weight', '')}".lower()
+        weight_match = re.search(r'(\d+)\s*(gr|g|kg|ml|l)', full_text)
+        if weight_match:
+            val = float(weight_match.group(1))
+            unit = weight_match.group(2)
+            if unit in ['gr', 'g', 'ml']:
+                attributes['net_content'] = val / 1000.0
+            else:
+                attributes['net_content'] = val
+        
+        # 2. Brand normalization if missing
+        if not attributes.get('brand'):
+            nutricia_brands = ["nutrilon", "vital", "neocate", "profutura"]
+            for b in nutricia_brands:
+                if b in title.lower():
+                    attributes['brand'] = b.title()
+                    break
+        
+        return attributes
 
     async def get_item_details(self, url):
         """

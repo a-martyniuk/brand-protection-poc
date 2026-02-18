@@ -353,6 +353,24 @@ class IdentificationEngine:
             score += 100 # Direct 100 for restricted SKU
             details["restricted_sku_violation"] = True
 
+        # Rule F: Trust Signal - Official Store
+        is_official = listing.get("is_official_store", False)
+        if is_official:
+            m_price = float(master_product.get("list_price") or 0)
+            l_price = float(listing.get("price") or 0)
+            # If it's an official store and price isn't ridiculously low (e.g., >80% of list), trust it
+            if m_price > 0 and l_price >= (m_price * 0.8):
+                details["trust_signal"] = "Verified Official Store"
+                score = 0 # Force 0 for official stores with sane pricing
+        
+        # Add Seller Reputation to details for context
+        reputation = listing.get("seller_reputation", {})
+        if reputation:
+            details["seller_reputation"] = {
+                "level": reputation.get("level"),
+                "power_seller": reputation.get("power_seller")
+            }
+
         # Ensure score stays in range
         final_score = min(score, 100)
         

@@ -91,60 +91,60 @@ class ProductEnricher:
                 viewport={"width": 1280, "height": 800},
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
             )
-            page = await context.new_page()
+            semaphore = asyncio.Semaphore(3) # Limit to 3 concurrent tabs to avoid detection
             
+            async def enriched_task(i, product, page_for_task):
+                async with semaphore:
+                    try:
+                        timestamp = datetime.now().strftime("%H:%M:%S")
+                        meli_id = product['meli_id']
+                        url = product['url']
+                        
+                        self.update_status(
+                            current_product={
+                                "meli_id": meli_id,
+                                "title": product['title'][:50],
+                                "url": url,
+                                "timestamp": timestamp
+                            }
+                        )
+                        
+                        print(f"[{timestamp}] [{i+1}/{len(products)}] Processing {meli_id}...")
+                        
+                        # Scrape detail page
+                        details = await self.scrape_product_details(page_for_task, url)
+                        
+                        # Update database and log
+                        if details and (details.get('ean') or details.get('specs')):
+                            self.update_product(product['id'], details)
+                            ean = details.get('ean', 'N/A')
+                            print(f"  ✓ {meli_id} - EAN: {ean}")
+                            self.log_product(meli_id, url, "enriched", ean=ean)
+                            self.progress["enriched"] += 1
+                        else:
+                            print(f"  ⚠ {meli_id} - No additional data")
+                            self.log_product(meli_id, url, "no_data")
+                        
+                        self.progress["processed"] += 1
+                        self.update_status()
+                        
+                    except Exception as e:
+                        print(f"  ✗ {meli_id} Error: {e}")
+                        self.log_product(meli_id, url, "failed", error=str(e))
+                        self.progress["failed"] += 1
+
+            # Create tasks for all products
+            # Note: Playwright pages aren't thread-safe but tasks are serial on one page 
+            # OR we can create multiple pages. Let's use 3 dedicated pages for our 3 concurrent tasks.
+            pages = [await context.new_page() for _ in range(3)]
+            tasks = []
             for i, product in enumerate(products):
-                try:
-                    timestamp = datetime.now().strftime("%H:%M:%S")
-                    meli_id = product['meli_id']
-                    url = product['url']
-                    
-                    # Update current status
-                    self.update_status(
-                        current_product={
-                            "meli_id": meli_id,
-                            "title": product['title'][:50],
-                            "url": url,
-                            "timestamp": timestamp
-                        },
-                        processed=i
-                    )
-                    
-                    print(f"\n[{timestamp}] [{i+1}/{len(products)}] {meli_id}")
-                    print(f"  📄 {product['title'][:60]}...")
-                    print(f"  🔗 {url[:80]}...")
-                    
-                    # Scrape detail page
-                    details = await self.scrape_product_details(page, url)
-                    
-                    # Update database and log
-                    if details and (details.get('ean') or details.get('specs')):
-                        self.update_product(product['id'], details)
-                        ean = details.get('ean', 'N/A')
-                        print(f"  ✓ Enriched - EAN: {ean}")
-                        
-                        self.log_product(meli_id, url, "enriched", ean=ean)
-                        self.progress["enriched"] += 1
-                    else:
-                        print(f"  ⚠ No additional data found")
-                        self.log_product(meli_id, url, "no_data")
-                    
-                    # Rate limiting
-                    if (i + 1) % self.batch_size == 0:
-                        print(f"\n📦 Batch {(i+1)//self.batch_size} complete. Sleeping {self.delay * 2}s...")
-                        await asyncio.sleep(self.delay * 2)
-                    else:
-                        await asyncio.sleep(self.delay)
-                        
-                except Exception as e:
-                    print(f"  ✗ Error: {e}")
-                    self.log_product(meli_id, url, "failed", error=str(e))
-                    self.progress["failed"] += 1
-                    continue
-                finally:
-                    self.progress["processed"] = i + 1
-                    self.update_status()
+                target_page = pages[i % len(pages)]
+                tasks.append(enriched_task(i, product, target_page))
             
+            await asyncio.gather(*tasks)
+            
+            for p in pages: await p.close()
             await browser.close()
         
         # Final status update

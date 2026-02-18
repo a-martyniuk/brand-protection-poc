@@ -50,6 +50,10 @@ async def run_pipeline():
                 "thumbnail": l["thumbnail"],
                 "category": l.get("category"),
                 "brand_detected": l.get("brand_detected"),
+                "seller_id": l.get("seller_id"),
+                "is_official_store": l.get("is_official_store", False),
+                "official_store_id": l.get("official_store_id"),
+                "seller_reputation": l.get("seller_reputation", {}),
                 "attributes": l.get("attributes", {})
             }
     
