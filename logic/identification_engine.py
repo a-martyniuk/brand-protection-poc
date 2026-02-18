@@ -373,6 +373,13 @@ class IdentificationEngine:
             unit_price = actual_price / detected_qty if detected_qty > 0 else actual_price
             min_price = float(master_product["list_price"])
             
+            # Always include unit price for UI clarity in packs
+            details["unit_price_info"] = {
+                "unit_price": round(unit_price, 2),
+                "detected_qty": detected_qty,
+                "is_pack": detected_qty > 1
+            }
+
             # If the quantity doesn't match the master SKU, note it
             if detected_qty != m_units:
                 details["non_standard_qty"] = {

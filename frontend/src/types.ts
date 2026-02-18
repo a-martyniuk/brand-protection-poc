@@ -5,6 +5,7 @@ export interface FieldStatus {
     status: 'approved' | 'rejected' | 'warning' | 'n/a';
     details?: string;
     score_impact?: number;
+    unit_price?: number;
 }
 
 // Complete product audit with field breakdown

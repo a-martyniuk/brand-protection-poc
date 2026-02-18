@@ -62,6 +62,11 @@ const FieldComparisonRow: React.FC<FieldComparisonRowProps> = ({ fieldName, fiel
             <div className="flex flex-col">
                 <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Scraped</span>
                 <span className="text-sm text-white font-medium">{field.scraped}</span>
+                {field.unit_price && (
+                    <span className="text-[10px] text-brand-400 font-bold mt-1">
+                        (Unit: ${field.unit_price.toLocaleString('es-AR')})
+                    </span>
+                )}
             </div>
 
             {/* Master Value */}
