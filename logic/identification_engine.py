@@ -439,3 +439,18 @@ class IdentificationEngine:
         if score >= 60: return "Alto"
         if score >= 30: return "Medio"
         return "Bajo"
+
+    def map_violation_to_bpp_reason(self, audit_details):
+        """
+        Maps internal audit violation flags to MercadoLibre BPP Reason IDs.
+        703: Price significantly lower than suggested.
+        704: Misleading information about quantity/volume.
+        """
+        if audit_details.get("low_price"):
+            return "703", "Violación de política de precios (PVP)"
+        if audit_details.get("volumetric_mismatch"):
+            return "704", "Inconsistencia en contenido neto / multipack detectado"
+        if audit_details.get("restricted_sku_violation"):
+            return "701", "Producto de venta prohibida/restringida"
+            
+        return None, None
