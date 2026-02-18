@@ -142,7 +142,7 @@ class IdentificationEngine:
             "motor", "auto", "camion", "moto ", "lubricante", "filtro aceite", "shell helix", "castrol", "motul", "motorcraft"
         ]
         if any(kw in title_lower for kw in exclusion_keywords):
-            return 0, 0 # Hard rejection for pet or unrelated pharma products
+            return 0, 0, None # Hard rejection for pet or unrelated pharma products
 
         # 1. Brand Match (Critical)
         l_brand = (listing_attrs.get("brand") or listing_attrs.get("marca") or "").lower()
@@ -167,7 +167,7 @@ class IdentificationEngine:
                 # REJECT known external brands that mimic Nutricia names
                 external_mimics = ["vitalcan", "vitalis", "vitalife"]
                 if any(mimic in title_lower for mimic in external_mimics):
-                    return 0, 0 # Hard rejection
+                    return 0, 0, l_brand # Hard rejection
                 score -= 60 
             else:
                 matches += 1
@@ -176,7 +176,7 @@ class IdentificationEngine:
         # If the master brand keyword is not in the title, reject the match
         # This prevents generic "infant" or "protein" products from other brands from matching
         if m_brand not in title_lower and m_brand not in l_brand:
-            return 0, 0 # Hard rejection for lack of brand intent
+            return 0, 0, l_brand # Hard rejection for lack of brand intent
 
         # 2. Volumetric/FC Validation (Updated with structured data)
         vol_match, detected_kg = self.validate_volumetric_match(listing_attrs, master_product)
@@ -194,7 +194,7 @@ class IdentificationEngine:
             else:
                 score -= 30
 
-        return max(0, score), matches
+        return max(0, score), matches, l_brand
 
     def identify_product(self, listing):
         """
@@ -233,7 +233,7 @@ class IdentificationEngine:
             title_sim = fuzz.token_set_ratio(listing_title_norm, mp_name_norm)
             
             # Attribute Similarity (60%)
-            attr_score, attr_matches = self.calculate_attribute_score(listing_attrs, mp)
+            attr_score, attr_matches, detected_brand = self.calculate_attribute_score(listing_attrs, mp)
             
             # MANDATORY REJECTION
             if attr_score == 0:
@@ -293,13 +293,16 @@ class IdentificationEngine:
         # 1. Attribute-Based Confidence Details
         listing_attrs = listing.get("attributes", {})
         listing_attrs["title"] = listing.get("title", "")
-        attr_score, attr_matches = self.calculate_attribute_score(listing_attrs, master_product)
+        attr_score, attr_matches, detected_brand = self.calculate_attribute_score(listing_attrs, master_product)
         details["attribute_breakdown"] = {
             "score": attr_score,
             "matches_count": attr_matches,
-            "brand": listing_attrs.get("brand") or listing_attrs.get("marca"),
+            "brand": detected_brand or listing_attrs.get("brand") or listing_attrs.get("marca"),
             "net_content": listing_attrs.get("net_content") or listing_attrs.get("weight")
         }
+        
+        # Explicitly store detected brand for UI
+        details["detected_brand"] = detected_brand.title() if detected_brand else "Not detected"
 
         # Rule A: EAN Presence
         if not listing.get("ean_published") and match_level > 1:
@@ -307,7 +310,7 @@ class IdentificationEngine:
             details["missing_ean"] = True
 
         # Rule B: Brand Integrity
-        found_brand = listing.get("brand_detected") or listing_attrs.get("brand") or listing_attrs.get("marca")
+        found_brand = detected_brand or listing.get("brand_detected") or listing_attrs.get("brand") or listing_attrs.get("marca")
         if found_brand:
             brand_sim = fuzz.ratio(str(found_brand).lower(), master_product["brand"].lower())
             if brand_sim < 85:

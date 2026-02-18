@@ -17,7 +17,7 @@ function parseFieldStatus(audit: any, listing: any, master: any): ProductAudit['
             score_impact: details.missing_ean ? 20 : 0
         },
         brand: {
-            scraped: details.brand_mismatch?.found || listing?.brand_detected || 'Not detected',
+            scraped: details.brand_mismatch?.found || listing?.brand_detected || details.detected_brand || 'Not detected',
             master: details.brand_mismatch?.expected || master?.brand || 'N/A',
             status: details.brand_mismatch ? 'rejected' : 'approved',
             details: details.brand_mismatch ? `Expected "${details.brand_mismatch.expected}", found "${details.brand_mismatch.found}"` : undefined,
