@@ -7,11 +7,22 @@ async def refresh_audit():
     db = SupabaseHandler()
     engine = IdentificationEngine()
     
-    # 1. Fetch all listings from DB
-    print("Fetching active listings from 'meli_listings'...")
-    res = db.supabase.table("meli_listings").select("*").limit(5000).execute()
-    listings = res.data
-    print(f"Loaded {len(listings)} listings.")
+    # 1. Fetch all listings from DB (handling pagination for > 1000 rows)
+    print("Fetching active listings from 'meli_listings' in batches...")
+    listings = []
+    batch_size = 1000
+    offset = 0
+    
+    while True:
+        res = db.supabase.table("meli_listings").select("*").range(offset, offset + batch_size - 1).execute()
+        batch = res.data
+        listings.extend(batch)
+        print(f"Loaded {len(listings)} listings...")
+        if len(batch) < batch_size:
+            break
+        offset += batch_size
+    
+    print(f"Total listings loaded: {len(listings)}")
     
     # 2. Re-run identification for each
     print("Re-calculating fraud scores with new Multipack & Unit Price logic...")

@@ -141,27 +141,38 @@ export const useBrandData = () => {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            // Fetch compliance data
-            const { data: auditData, error: aError } = await supabase
-                .from('compliance_audit')
-                .select(`
-                    *,
-                    meli_listings(*),
-                    master_products(*)
-                `)
-                .order('processed_at', { ascending: false })
-                .limit(5000);
+            // Fetch compliance data with pagination (bypassing 1000 row limit)
+            let allAuditData: any[] = [];
+            let offset = 0;
+            const batchSize = 1000;
 
-            if (aError) throw aError;
+            while (true) {
+                const { data: auditBatch, error: aError } = await supabase
+                    .from('compliance_audit')
+                    .select(`
+                        *,
+                        meli_listings(*),
+                        master_products(*)
+                    `)
+                    .order('processed_at', { ascending: false })
+                    .range(offset, offset + batchSize - 1);
 
-            // Stats counts
+                if (aError) throw aError;
+                if (!auditBatch || auditBatch.length === 0) break;
+
+                allAuditData = [...allAuditData, ...auditBatch];
+                if (auditBatch.length < batchSize) break;
+                offset += batchSize;
+            }
+
+            // Stats counts (using count: 'exact' is safer as it bypasses row limits)
             const { count: listingCount } = await supabase.from('meli_listings').select('*', { count: 'exact', head: true });
             const { count: highRiskCount } = await supabase.from('compliance_audit').select('*', { count: 'exact', head: true }).eq('risk_level', 'Alto');
             const { count: mediumRiskCount } = await supabase.from('compliance_audit').select('*', { count: 'exact', head: true }).eq('risk_level', 'Medio');
             const { count: lowRiskCount } = await supabase.from('compliance_audit').select('*', { count: 'exact', head: true }).eq('risk_level', 'Bajo');
 
-            if (auditData) {
-                const fetchedProducts: ProductAudit[] = auditData.map((a: any) => ({
+            if (allAuditData) {
+                const fetchedProducts: ProductAudit[] = allAuditData.map((a: any) => ({
                     id: a.id,
                     meli_id: a.meli_listings?.meli_id || 'N/A',
                     title: a.meli_listings?.title || 'Unknown Listing',
@@ -188,7 +199,7 @@ export const useBrandData = () => {
                 high_risk: highRiskCount || 0,
                 medium_risk: mediumRiskCount || 0,
                 low_risk: lowRiskCount || 0,
-                last_audit: auditData?.[0]?.processed_at
+                last_audit: allAuditData?.[0]?.processed_at
             });
 
             await fetchEnrichmentStats();
