@@ -12,6 +12,21 @@ class SupabaseHandler:
             raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set in environment variables.")
         self.supabase: Client = create_client(url, key)
 
+    def clear_all_data(self):
+        """
+        Deletes all data from 'compliance_audit' and 'meli_listings' tables.
+        """
+        try:
+            print("Clearing 'compliance_audit' table...")
+            self.supabase.table("compliance_audit").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+            print("Clearing 'meli_listings' table...")
+            self.supabase.table("meli_listings").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+            print("Database reset successful.")
+            return True
+        except Exception as e:
+            print(f"Error clearing data: {e}")
+            return False
+
     def upsert_master_products(self, products_data):
         """
         Upserts products into the 'master_products' table.

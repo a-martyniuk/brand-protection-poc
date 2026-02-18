@@ -14,38 +14,40 @@ function parseFieldStatus(audit: any, listing: any, master: any): ProductAudit['
             master: master?.ean || 'N/A',
             status: details.missing_ean ? 'warning' : (listing?.ean_published ? 'approved' : 'n/a'),
             details: details.missing_ean ? 'EAN not provided in listing' : undefined,
-            score_impact: details.missing_ean ? 30 : 0
+            score_impact: details.missing_ean ? 20 : 0
         },
         brand: {
             scraped: details.brand_mismatch?.found || listing?.brand_detected || 'Not detected',
             master: details.brand_mismatch?.expected || master?.brand || 'N/A',
             status: details.brand_mismatch ? 'rejected' : 'approved',
             details: details.brand_mismatch ? `Expected "${details.brand_mismatch.expected}", found "${details.brand_mismatch.found}"` : undefined,
-            score_impact: details.brand_mismatch ? 20 : 0
+            score_impact: details.brand_mismatch ? 30 : 0
         },
         price: {
             scraped: listing?.price ? `$${listing.price.toLocaleString('es-AR')}` : 'N/A',
-            master: details.low_price?.min
-                ? `$${details.low_price.min.toLocaleString('es-AR')} (min)`
+            master: details.low_price?.min_allowed
+                ? `$${details.low_price.min_allowed.toLocaleString('es-AR')} (min)`
                 : (master?.list_price ? `$${master.list_price.toLocaleString('es-AR')}` : 'N/A'),
             status: details.low_price ? 'rejected' : 'approved',
             details: details.low_price
-                ? `Price $${listing?.price} is below minimum $${details.low_price.min}`
+                ? `Price $${listing?.price} is below minimum $${details.low_price.min_allowed}`
                 : undefined,
-            score_impact: details.unauthorized_discount ? 60 : (details.low_price ? 20 : 0)
+            score_impact: details.low_price ? 100 : 0
         },
         volume: {
-            scraped: details.volumetric_mismatch?.listing_kg
-                ? `${details.volumetric_mismatch.listing_kg} kg`
+            scraped: details.volumetric_mismatch?.detected_in_listing
+                ? (typeof details.volumetric_mismatch.detected_in_listing === 'number'
+                    ? `${details.volumetric_mismatch.detected_in_listing} kg`
+                    : details.volumetric_mismatch.detected_in_listing)
                 : 'Not detected',
-            master: details.volumetric_mismatch?.master_kg
-                ? `${details.volumetric_mismatch.master_kg} kg`
+            master: details.volumetric_mismatch?.expected_kg
+                ? `${details.volumetric_mismatch.expected_kg} kg`
                 : (master?.fc_net ? `${master.fc_net} kg` : 'N/A'),
             status: details.volumetric_mismatch ? 'rejected' : 'approved',
             details: details.volumetric_mismatch
-                ? `${details.volumetric_mismatch.diff_percent}% difference detected`
+                ? `Volume mismatch detected (Expected ${details.volumetric_mismatch.expected_kg}kg)`
                 : undefined,
-            score_impact: details.volumetric_mismatch ? 40 : 0
+            score_impact: details.volumetric_mismatch ? 100 : 0
         },
         quantity: {
             scraped: details.combo_mismatch?.listing
@@ -71,12 +73,12 @@ function parseFieldStatus(audit: any, listing: any, master: any): ProductAudit['
         },
         publishable: {
             scraped: listing?.status_publicacion || 'Active',
-            master: details.restricted_sku ? 'Not publishable' : 'Publishable',
-            status: details.restricted_sku ? 'rejected' : 'approved',
-            details: details.restricted_sku
+            master: details.restricted_sku_violation ? 'Not publishable' : 'Publishable',
+            status: details.restricted_sku_violation ? 'rejected' : 'approved',
+            details: details.restricted_sku_violation
                 ? 'This SKU should not be published on marketplace'
                 : undefined,
-            score_impact: details.restricted_sku ? 50 : 0
+            score_impact: details.restricted_sku_violation ? 100 : 0
         }
     };
 }

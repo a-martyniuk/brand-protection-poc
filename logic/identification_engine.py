@@ -124,23 +124,59 @@ class IdentificationEngine:
         
         # 0. Anti-False Positive Keywords (Hard Rejection)
         title_lower = listing_attrs.get("title", "").lower()
-        exclusion_keywords = ["perro", "gato", "mascotas", "vitalcan", "sieger", "dog chow", "cat chow"]
+        exclusion_keywords = [
+            # Pet & Animal (Vitalcan, etc.)
+            "perro", "gato", "mascotas", "vitalcan", "sieger", "dog chow", "cat chow",
+            # Pharmaceuticals (Vitalis, etc.)
+            "vitalis", "acetilcisteina", "cisteina", "farmacia", "medicamento", "laboratorio vitalis",
+            # Biological/Tech Mimics (Hongo, Jebao)
+            "hongo", "seta", "reishi", "melena de leon", "suplemento dietario",
+            "jebao", "acuario", "pecera", "skimmer", "dosificadora", "iluminacion led",
+            # Mobile & Tech Noise (Common overlaps)
+            "funda", "vidrio templado", "celular", "case", "protector de pantalla",
+            # Personal Care & Beauty
+            "shampoo", "acondicionador", "crema", "perfume", "fragancia", "peine", "shampoo vital",
+            # Baby Gear & Toys (Non-Nutricia)
+            "cochecito", "cuna", "butaca", "bouncer", "mecedora", "juguete", "lego", "playmobil", "muñeca",
+            # Automotive & Industrial (Conflicts with MCT Oil / Aceite de Lorenzo)
+            "motor", "auto", "camion", "moto ", "lubricante", "filtro aceite", "shell helix", "castrol", "motul", "motorcraft"
+        ]
         if any(kw in title_lower for kw in exclusion_keywords):
-            return 0, 0 # Hard rejection for pet products
+            return 0, 0 # Hard rejection for pet or unrelated pharma products
 
         # 1. Brand Match (Critical)
         l_brand = (listing_attrs.get("brand") or listing_attrs.get("marca") or "").lower()
         m_brand = (master_product.get("brand") or "").lower()
         
+        # If scraper didn't detect brand, try to find it in title
+        nutricia_brands = [
+            "nutrilon", "vital", "neocate", "fortisip", "fortini", "nutrison", "peptisorb", "diasip", "loprofin",
+            "infatrini", "ketocal", "souvenaid", "cubitan", "mct oil", "monogen", "liquigen", "secalbum", 
+            "espesan", "gmpro", "galactomin", "ketoblend", "maxamum", "lophlex", "ls baby", "fortifit", 
+            "duocal", "polimerosa", "advanta", "pku", "flocare", "anamix", "l'serina", "serina", "profutura"
+        ]
+        if not l_brand:
+            for b in nutricia_brands:
+                if b in title_lower:
+                    l_brand = b
+                    break
+        
         if l_brand and m_brand:
             # If brands are explicitly different and non-overlapping, it's a mismatch
             if l_brand != m_brand and l_brand not in m_brand and m_brand not in l_brand:
-                # SPECIAL CASE: Nutricia brands vs known pet brands
-                if "vitalcan" in l_brand or "vitalis" in l_brand:
+                # REJECT known external brands that mimic Nutricia names
+                external_mimics = ["vitalcan", "vitalis", "vitalife"]
+                if any(mimic in title_lower for mimic in external_mimics):
                     return 0, 0 # Hard rejection
-                score -= 60 # Increased penalty for brand mismatch
+                score -= 60 
             else:
                 matches += 1
+        
+        # NEW CRITICAL RULE: Mandatory Brand Presence
+        # If the master brand keyword is not in the title, reject the match
+        # This prevents generic "infant" or "protein" products from other brands from matching
+        if m_brand not in title_lower and m_brand not in l_brand:
+            return 0, 0 # Hard rejection for lack of brand intent
 
         # 2. Volumetric/FC Validation (Updated with structured data)
         if not self.validate_volumetric_match(listing_attrs, master_product):
@@ -180,30 +216,51 @@ class IdentificationEngine:
                     match_level = 1
                     break
 
-        if not best_match:
-            # 2. Level 2: Weighted Attribute + Title Match
-            for mp in self.master_products:
-                # Title Similarity (40%)
-                mp_name_norm = self.normalize_text(mp.get("product_name", ""))
-                title_sim = fuzz.token_set_ratio(listing_title_norm, mp_name_norm)
-                
-                # Attribute Similarity (60%)
-                attr_score, attr_matches = self.calculate_attribute_score(listing_attrs, mp)
-                
-                # Combined Score
-                total_score = (title_sim * 0.4) + (attr_score * 0.6)
-                
-                if total_score > max_total_score:
-                    max_total_score = total_score
-                    best_match = mp
+        # 2. Level 2: Weighted Attribute + Title Match
+        # Pre-detect brand to use in strict floors
+        l_brand = (listing_attrs.get("brand") or listing_attrs.get("marca") or "").lower()
+        if not l_brand:
+            nutricia_brands = ["nutrilon", "vital", "neocate", "fortisip", "fortini", "nutrison", "peptisorb", "diasip", "loprofin", "profutura"]
+            for b in nutricia_brands:
+                if b in listing_title_norm:
+                    l_brand = b
+                    break
 
-            if max_total_score >= 80: 
-                match_level = 2
-            elif max_total_score >= 70: # Increased from 60 to prevent over-matching
-                match_level = 3
-            else:
-                match_level = 0
-                best_match = None if max_total_score < 50 else best_match # Increased floor from 40
+        for mp in self.master_products:
+            # Title Similarity (40%)
+            mp_name_norm = self.normalize_text(mp.get("product_name", ""))
+            title_sim = fuzz.token_set_ratio(listing_title_norm, mp_name_norm)
+            
+            # Attribute Similarity (60%)
+            attr_score, attr_matches = self.calculate_attribute_score(listing_attrs, mp)
+            
+            # MANDATORY REJECTION
+            if attr_score == 0:
+                continue
+
+            # Combined Score
+            total_score = (title_sim * 0.4) + (attr_score * 0.6)
+                
+            # 3. Dynamic Thresholds & Hard Floors
+            # If title similarity is extremely low, it's a candidate for rejection
+            if title_sim < 40 and total_score < 80: 
+                total_score = 0 # Hard floor for unrelated titles
+
+            # If NO brand was detected and similarity is not strong, reject
+            if not l_brand and title_sim < 60:
+                total_score = 0
+
+            if total_score > max_total_score:
+                max_total_score = total_score
+                best_match = mp
+
+        if max_total_score >= 85: 
+            match_level = 2
+        elif max_total_score >= 70: 
+            match_level = 3
+        else:
+            match_level = 0
+            best_match = None if max_total_score < 60 else best_match
 
         # 3. Generate Full Audit
         audit = self.generate_audit_report(listing, best_match, match_level)
@@ -222,13 +279,14 @@ class IdentificationEngine:
         
         if not master_product:
             return {
-                "master_id": None,
+                "master_product_id": None,
                 "match_level": 0,
-                "fraud_score": 100 if match_level == 0 else 50,
-                "details": {"unidentified": True},
-                "is_price_ok": False,
-                "is_brand_correct": False,
-                "is_publishable_ok": True
+                "fraud_score": 0, # Unidentified is NOT a violation by default
+                "violation_details": {"unidentified": True, "note": "Listing ignored (No Nutricia match)"},
+                "is_price_ok": True,
+                "is_brand_correct": True,
+                "is_publishable_ok": True,
+                "risk_level": "Bajo"
             }
 
         # 1. Attribute-Based Confidence Details
@@ -264,7 +322,7 @@ class IdentificationEngine:
             
             if actual_price < min_price:
                 is_price_ok = False
-                score += 50 # Significant score increase for price breaking
+                score += 100 # Direct 100 for price breaking
                 details["low_price"] = {
                     "min_allowed": min_price, 
                     "actual_price": actual_price,
@@ -274,7 +332,7 @@ class IdentificationEngine:
         # Rule D: Volumetric Validation (Enhanced Format Fraud Detection)
         if not self.validate_volumetric_match(listing_attrs, master_product):
             m_net = float(master_product.get("fc_net") or 0)
-            score += 60 # Critical penalty for format fraud
+            score += 100 # Direct 100 for format fraud
             details["volumetric_mismatch"] = {
                 "expected_kg": m_net,
                 "detected_in_listing": listing_attrs.get("net_content") or "unmatched"
@@ -283,17 +341,17 @@ class IdentificationEngine:
         # Rule E: Restricted SKU
         if not master_product.get("is_publishable", True):
             is_publishable_ok = False
-            score += 80 # Highly suspicious
+            score += 100 # Direct 100 for restricted SKU
             details["restricted_sku_violation"] = True
 
         # Ensure score stays in range
         final_score = min(score, 100)
         
         return {
-            "master_id": master_product["id"],
+            "master_product_id": master_product["id"],
             "match_level": match_level,
             "fraud_score": final_score,
-            "details": details,
+            "violation_details": details,
             "is_price_ok": is_price_ok,
             "is_brand_correct": is_brand_correct,
             "is_publishable_ok": is_publishable_ok,

@@ -20,14 +20,13 @@ async def run_pipeline():
     brands = list(set([mp["brand"] for mp in master_products if mp.get("brand")]))
     print(f"Loaded {len(master_products)} products across brands: {brands}")
 
-    # 3. Scrape Meli Listings
-    # For PoC, focus on top brands
-    poc_brands = [b for b in brands if "Nutrilon" in b or "Vital" in b]
+    # 3. Scrape Meli Listings (Full Catalog Coverage)
+    print(f"\n🚀 Expanding search to all {len(brands)} catalog brands...")
     search_items = []
-    for brand in poc_brands:
+    for brand in brands:
         search_items.append({
             "product_name": brand,
-            "official_id": None # No specific ID for brand search
+            "official_id": None
         })
 
     scraper = MeliAPIScraper(search_items)
@@ -68,7 +67,7 @@ async def run_pipeline():
     # We only enrich products that were just scraped/updated and missing data
     # For PoC speed, we limit this to a small number or only those from this run
     # For now, let's run it for the products we just synced that lack EAN
-    await enricher.enrich_products(limit=20) 
+    await enricher.enrich_products(limit=50) 
     
     # Reload listings from DB to get enriched data (EAN, brand, attributes)
     print("Reloading enriched listings from database...")
@@ -94,14 +93,14 @@ async def run_pipeline():
         
         audit_records.append({
             "listing_id": listing_uuid,
-            "master_product_id": audit["master_id"],
+            "master_product_id": audit["master_product_id"],
             "match_level": audit["match_level"],
             "is_brand_correct": audit["is_brand_correct"],
             "is_price_ok": audit["is_price_ok"],
             "is_publishable_ok": audit["is_publishable_ok"],
             "fraud_score": fraud_score,
             "risk_level": risk_level,
-            "violation_details": audit["details"]
+            "violation_details": audit["violation_details"]
         })
 
     if audit_records:
