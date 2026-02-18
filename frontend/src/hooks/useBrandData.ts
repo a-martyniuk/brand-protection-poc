@@ -149,7 +149,8 @@ export const useBrandData = () => {
                     meli_listings(*),
                     master_products(*)
                 `)
-                .order('processed_at', { ascending: false });
+                .order('processed_at', { ascending: false })
+                .limit(5000);
 
             if (aError) throw aError;
 

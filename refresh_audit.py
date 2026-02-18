@@ -9,7 +9,7 @@ async def refresh_audit():
     
     # 1. Fetch all listings from DB
     print("Fetching active listings from 'meli_listings'...")
-    res = db.supabase.table("meli_listings").select("*").execute()
+    res = db.supabase.table("meli_listings").select("*").limit(5000).execute()
     listings = res.data
     print(f"Loaded {len(listings)} listings.")
     
