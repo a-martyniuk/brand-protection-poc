@@ -54,12 +54,12 @@ function parseFieldStatus(audit: any, listing: any, master: any): ProductAudit['
             master_unit_value: master?.fc_net ? (master.fc_net < 1 ? `${master.fc_net * 1000}g` : `${master.fc_net}kg`) : 'N/A'
         },
         quantity: {
-            scraped: details.combo_mismatch?.listing
-                ? `${details.combo_mismatch.listing} units`
+            scraped: (details.detected_qty || details.volumetric_info?.detected_qty || details.combo_mismatch?.listing)
+                ? `${details.detected_qty || details.volumetric_info?.detected_qty || details.combo_mismatch.listing} units`
                 : '1 unit',
-            master: details.combo_mismatch?.master
-                ? `${details.combo_mismatch.master} units`
-                : (master?.units_per_pack || '1 unit'),
+            master: (master?.units_per_pack || details.combo_mismatch?.master || 1)
+                ? `${master?.units_per_pack || details.combo_mismatch?.master || 1} units`
+                : '1 unit',
             status: details.combo_mismatch ? 'rejected' : 'approved',
             details: details.combo_mismatch
                 ? `Expected ${details.combo_mismatch.master} units, found ${details.combo_mismatch.listing}`

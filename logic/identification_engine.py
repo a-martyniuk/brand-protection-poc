@@ -23,11 +23,11 @@ class IdentificationEngine:
         # Match patterns like: Pack X 4, Pack de 6, 12 unidades, 24u, x24, x 4
         # We avoid matching the volume (e.g., 800g) as quantity by using word boundaries or specific markers
         qty_patterns = [
+            r'(\d+)\s*(?:unidades|units|u|un|items|uds)\b', # 12 unidades, 24u, 2 units
             r'pack\s*x?\s*(\d+)',           # Pack X 4, Pack 4
             r'pack\s+de\s+(\d+)',          # Pack de 6
             r'combo\s*x?\s*(\d+)',         # Combo X 2
             r'promo\s*x?\s*(\d+)',         # Promo X 3
-            r'(\d+)\s*(?:unidades|units|u|un)\b', # 12 unidades, 24u
             r'\bx\s?(\d+)\b',              # x 4, x24
             r'\b(\d+)\s?x\b'               # 2x, 4 x
         ]
@@ -394,6 +394,11 @@ class IdentificationEngine:
                     "listing_qty": detected_qty,
                     "master_qty": m_units,
                     "unit_price_calculated": round(unit_price, 2)
+                }
+                # For frontend compatibility
+                details["combo_mismatch"] = {
+                    "listing": detected_qty,
+                    "master": m_units
                 }
 
             if unit_price < min_price:
