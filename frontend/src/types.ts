@@ -6,6 +6,7 @@ export interface FieldStatus {
     details?: string;
     score_impact?: number;
     unit_price?: number;
+    unit_weight?: number;
 }
 
 // Complete product audit with field breakdown

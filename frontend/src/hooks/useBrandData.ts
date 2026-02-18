@@ -36,23 +36,18 @@ function parseFieldStatus(audit: any, listing: any, master: any): ProductAudit['
             unit_price: details.unit_price_info?.unit_price
         },
         volume: {
-            scraped: details.volumetric_mismatch?.detected_in_listing
-                ? (typeof details.volumetric_mismatch.detected_in_listing === 'number'
-                    ? `${details.volumetric_mismatch.detected_in_listing} kg`
-                    : details.volumetric_mismatch.detected_in_listing)
-                : (details.detected_volume && details.detected_volume !== 'Not detected'
-                    ? (typeof details.detected_volume === 'number'
-                        ? `${details.detected_volume} kg`
-                        : String(details.detected_volume))
-                    : 'Not detected'),
-            master: details.volumetric_mismatch?.expected_kg
-                ? `${details.volumetric_mismatch.expected_kg} kg`
-                : (master?.fc_net ? `${master.fc_net} kg` : 'N/A'),
+            scraped: details.volumetric_info?.detected_total_kg ?? (typeof details.volumetric_mismatch?.detected_in_listing === 'number' ? details.volumetric_mismatch.detected_in_listing : (typeof details.detected_volume === 'number' ? details.detected_volume : 0))
+                ? `${details.volumetric_info?.detected_total_kg || details.volumetric_mismatch?.detected_in_listing || details.detected_volume} kg`
+                : 'Not detected',
+            master: (details.volumetric_info?.expected_total_kg || details.volumetric_mismatch?.expected_kg || master?.fc_net)
+                ? `${details.volumetric_info?.expected_total_kg || details.volumetric_mismatch?.expected_kg || master?.fc_net} kg`
+                : 'N/A',
             status: details.volumetric_mismatch ? 'rejected' : 'approved',
             details: details.volumetric_mismatch
-                ? `Volume mismatch detected (Expected ${details.volumetric_mismatch.expected_kg}kg)`
+                ? `Volume mismatch detected (Expected ${details.volumetric_info?.expected_total_kg || details.volumetric_mismatch?.expected_kg || master?.fc_net}kg)`
                 : undefined,
-            score_impact: details.volumetric_mismatch ? 100 : 0
+            score_impact: details.volumetric_mismatch ? 100 : 0,
+            unit_weight: details.volumetric_info?.unit_weight
         },
         quantity: {
             scraped: details.combo_mismatch?.listing

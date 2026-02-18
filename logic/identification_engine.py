@@ -363,8 +363,16 @@ class IdentificationEngine:
         m_net = float(master_product.get("fc_net") or 0)
         m_units = int(master_product.get("units_per_pack") or 1)
         
-        # Always include detected volume for UI clarity
-        details["detected_volume"] = detected_kg if detected_kg > 0 else (listing_attrs.get("net_content") or "Not detected")
+        # Always include detected volume and quantity for UI clarity
+        details["volumetric_info"] = {
+            "detected_total_kg": round(detected_kg, 2) if detected_kg > 0 else 0,
+            "unit_weight": round(detected_kg / detected_qty, 3) if (detected_kg > 0 and detected_qty > 0) else 0,
+            "detected_qty": detected_qty,
+            "expected_total_kg": round(m_net * detected_qty, 2) if detected_qty > 0 else m_net,
+            "is_pack": detected_qty > 1
+        }
+        
+        details["detected_volume"] = details["volumetric_info"]["detected_total_kg"]
         details["detected_qty"] = detected_qty
         
         if master_product.get("list_price"):

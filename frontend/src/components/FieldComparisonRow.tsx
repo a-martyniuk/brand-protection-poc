@@ -67,6 +67,11 @@ const FieldComparisonRow: React.FC<FieldComparisonRowProps> = ({ fieldName, fiel
                         (Unit: ${field.unit_price.toLocaleString('es-AR')})
                     </span>
                 )}
+                {field.unit_weight && (
+                    <span className="text-[10px] text-brand-400 font-bold mt-1">
+                        (Unit: {field.unit_weight < 1 ? `${field.unit_weight * 1000}g` : `${field.unit_weight}kg`})
+                    </span>
+                )}
             </div>
 
             {/* Master Value */}
