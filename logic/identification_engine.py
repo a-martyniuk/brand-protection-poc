@@ -183,7 +183,12 @@ class IdentificationEngine:
             # Gaming & Tech (Conflicts with GMPro)
             "gamer", "rgb", "led", "pc", "computadora", "teclado", "mouse", "auriculares", "monitor", "joystick", "consola", "ps4", "ps5", "xbox",
             # Electronics & Home (Conflicts with GMPro)
-            "electrico", "altura regulable", "cable", "usb", "bateria", "cargador", "lampara"
+            "electrico", "altura regulable", "cable", "usb", "bateria", "cargador", "lampara",
+            # Medical Consumables (Exclude from match with Nutritional Products)
+            "guia", "set de gravedad", "set enfit", "equipo de alimentacion", "sonda", 
+            "bomba de alimentacion", "jeringa", "prolongador", "conexion",
+            # Books & Educational (Conflicts with Fortini authors or similar)
+            "libro", "tomo", "geometria", "contables", "manual", "tratado", "diccionario", "enciclopedia", "usado"
         ]
         if any(kw in title_lower for kw in exclusion_keywords):
             return 0, 0, None # Hard rejection for pet or unrelated pharma products
