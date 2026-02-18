@@ -76,8 +76,13 @@ const FieldComparisonRow: React.FC<FieldComparisonRowProps> = ({ fieldName, fiel
 
             {/* Master Value */}
             <div className="flex flex-col">
-                <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Master</span>
+                <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Master Benchmark</span>
                 <span className="text-sm text-brand-400 font-medium">{field.master}</span>
+                {field.qty_multiplier && field.qty_multiplier > 1 && field.master_unit_value && (
+                    <span className="text-[10px] text-slate-400 font-medium mt-1 italic">
+                        ({field.master_unit_value} x {field.qty_multiplier})
+                    </span>
+                )}
             </div>
 
             {/* Status Badge */}

@@ -30,10 +30,12 @@ function parseFieldStatus(audit: any, listing: any, master: any): ProductAudit['
                 : (master?.list_price ? `$${master.list_price.toLocaleString('es-AR')}` : 'N/A'),
             status: details.low_price ? 'rejected' : 'approved',
             details: details.low_price
-                ? `Price $${listing?.price?.toLocaleString('es-AR')} is below minimum $${details.low_price.min_allowed?.toLocaleString('es-AR')}`
+                ? `Price $${listing?.price?.toLocaleString('es-AR')} is below minimum benchmark $${details.low_price.min_allowed?.toLocaleString('es-AR')}`
                 : (details.unit_price_info?.is_pack ? `Unit Price: $${details.unit_price_info.unit_price?.toLocaleString('es-AR')}` : undefined),
             score_impact: details.low_price ? 100 : 0,
-            unit_price: details.unit_price_info?.unit_price
+            unit_price: details.unit_price_info?.unit_price,
+            qty_multiplier: details.unit_price_info?.detected_qty,
+            master_unit_value: master?.list_price ? `$${master.list_price.toLocaleString('es-AR')}` : 'N/A'
         },
         volume: {
             scraped: details.volumetric_info?.detected_total_kg ?? (typeof details.volumetric_mismatch?.detected_in_listing === 'number' ? details.volumetric_mismatch.detected_in_listing : (typeof details.detected_volume === 'number' ? details.detected_volume : 0))
@@ -47,7 +49,9 @@ function parseFieldStatus(audit: any, listing: any, master: any): ProductAudit['
                 ? `Volume mismatch detected (Expected ${details.volumetric_info?.expected_total_kg || details.volumetric_mismatch?.expected_kg || master?.fc_net}kg)`
                 : undefined,
             score_impact: details.volumetric_mismatch ? 100 : 0,
-            unit_weight: details.volumetric_info?.unit_weight
+            unit_weight: details.volumetric_info?.unit_weight,
+            qty_multiplier: details.volumetric_info?.detected_qty,
+            master_unit_value: master?.fc_net ? (master.fc_net < 1 ? `${master.fc_net * 1000}g` : `${master.fc_net}kg`) : 'N/A'
         },
         quantity: {
             scraped: details.combo_mismatch?.listing
