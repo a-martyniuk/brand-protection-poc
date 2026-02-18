@@ -41,7 +41,9 @@ class MeliAPIScraper:
                 search_url = f"https://listado.mercadolibre.com.ar/{query.replace(' ', '-')}"
                 
                 try:
-                    await page.goto(search_url, wait_until="networkidle", timeout=60000)
+                    await page.goto(search_url, wait_until="domcontentloaded", timeout=60000)
+                    # Small sleep to allow some JS to run after DOM is ready
+                    await asyncio.sleep(2)
                     
                     # Wait for results or empty state
                     await page.wait_for_selector(".ui-search-layout__item, .ui-search-item__title", timeout=15000)
