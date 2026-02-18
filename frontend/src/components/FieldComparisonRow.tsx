@@ -80,7 +80,10 @@ const FieldComparisonRow: React.FC<FieldComparisonRowProps> = ({ fieldName, fiel
                 <span className="text-sm text-brand-400 font-medium">{field.master}</span>
                 {field.qty_multiplier && field.qty_multiplier > 1 && field.master_unit_value && (
                     <span className="text-[10px] text-slate-400 font-medium mt-1 italic">
-                        ({field.master_unit_value} x {field.qty_multiplier})
+                        ({fieldName === 'Price' && typeof field.master_unit_value === 'number'
+                            ? `$${field.master_unit_value.toLocaleString('es-AR')} x ${field.qty_multiplier} = $${(field.master_unit_value * field.qty_multiplier).toLocaleString('es-AR')}`
+                            : `${field.master_unit_value} x ${field.qty_multiplier}`}
+                        )
                     </span>
                 )}
             </div>

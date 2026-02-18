@@ -37,7 +37,7 @@ function parseFieldStatus(audit: any, listing: any, master: any): ProductAudit['
             score_impact: details.low_price ? 100 : 0,
             unit_price: details.unit_price_info?.unit_price,
             qty_multiplier: details.unit_price_info?.detected_qty,
-            master_unit_value: master?.list_price ? `$${master.list_price.toLocaleString('es-AR')}` : 'N/A'
+            master_unit_value: master?.list_price
         },
         volume: {
             scraped: details.volumetric_info?.detected_total_kg ?? (typeof details.volumetric_mismatch?.detected_in_listing === 'number' ? details.volumetric_mismatch.detected_in_listing : (typeof details.detected_volume === 'number' ? details.detected_volume : 0))
