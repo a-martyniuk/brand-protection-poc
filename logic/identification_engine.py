@@ -25,8 +25,11 @@ class IdentificationEngine:
         qty_patterns = [
             r'pack\s*x?\s*(\d+)',           # Pack X 4, Pack 4
             r'pack\s+de\s+(\d+)',          # Pack de 6
+            r'combo\s*x?\s*(\d+)',         # Combo X 2
+            r'promo\s*x?\s*(\d+)',         # Promo X 3
             r'(\d+)\s*(?:unidades|units|u|un)\b', # 12 unidades, 24u
-            r'\bx\s?(\d+)\b'               # x 4, x24 (but not 800x600)
+            r'\bx\s?(\d+)\b',              # x 4, x24
+            r'\b(\d+)\s?x\b'               # 2x, 4 x
         ]
         
         for p in qty_patterns:
@@ -114,14 +117,28 @@ class IdentificationEngine:
                 val = float(val_match.group(1).replace(',', '.'))
                 unit = val_match.group(2)
                 
-                # Convert to KG using combined quantity
+                unit_weight = 0
                 if unit in ['g', 'gr']:
-                    l_total_kg = (val * l_qty) / 1000
+                    unit_weight = val / 1000
                 elif unit in ['kg', 'l']:
-                    l_total_kg = val * l_qty
+                    unit_weight = val
                 elif unit == 'ml':
                     multiplier = 1.085 if "liquid" in m_substance or "liquido" in m_substance else 1.0
-                    l_total_kg = ((val * l_qty) / 1000) * multiplier
+                    unit_weight = (val / 1000) * multiplier
+                
+                # Smart Fusion: Determine if unit_weight is for 1 unit or the whole pack
+                # If it matches m_net * l_qty better than m_net, it's likely total weight
+                expected_total = m_net * l_qty
+                diff_unit = abs(unit_weight - m_net)
+                diff_total = abs(unit_weight - expected_total)
+                
+
+                if l_qty > 1 and diff_total < diff_unit and diff_total < (expected_total * 0.15):
+                    # Attribute already specifies total weight
+                    l_total_kg = unit_weight
+                else:
+                    # Attribute likely specifies unit weight, so we multiply
+                    l_total_kg = unit_weight * l_qty
 
         # 2. Final Fallback: Fully Regex Title if still undetermined
         if l_total_kg == 0:
