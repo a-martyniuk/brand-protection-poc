@@ -34,6 +34,8 @@ class PipelineHandler(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path == '/pipeline/run':
             self.run_pipeline()
+        elif self.path == '/audit/refresh':
+            self.run_audit_refresh()
         else:
             self._set_headers(404)
             self.wfile.write(json.dumps({"error": "Not found"}).encode())
@@ -98,11 +100,18 @@ class PipelineHandler(http.server.BaseHTTPRequestHandler):
             PROCESS = subprocess.Popen(["python", "main.py"], env=env)
             PROCESS.wait()
 
-        thread = threading.Thread(target=start_script)
+    def run_audit_refresh(self):
+        """Re-calculates audit scores based on existing listings."""
+        def start_refresh():
+            env = os.environ.copy()
+            env["PYTHONPATH"] = os.getcwd()
+            subprocess.Popen(["python", "refresh_audit.py"], env=env).wait()
+
+        thread = threading.Thread(target=start_refresh)
         thread.start()
 
         self._set_headers()
-        self.wfile.write(json.dumps({"status": "started", "timestamp": datetime.now().isoformat()}).encode())
+        self.wfile.write(json.dumps({"status": "refreshing", "timestamp": datetime.now().isoformat()}).encode())
 
 def run():
     print(f"BPP API Bridge started on port {PORT}")
@@ -110,6 +119,7 @@ def run():
     print(f"  GET  http://localhost:{PORT}/status")
     print(f"  GET  http://localhost:{PORT}/enrichment/stats")
     print(f"  POST http://localhost:{PORT}/pipeline/run")
+    print(f"  POST http://localhost:{PORT}/audit/refresh")
     
     with socketserver.TCPServer(("", PORT), PipelineHandler) as httpd:
         httpd.serve_forever()

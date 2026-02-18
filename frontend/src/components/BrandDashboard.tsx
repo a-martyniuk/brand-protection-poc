@@ -7,7 +7,7 @@ import ProductListView from './ProductListView';
 import AnalyticsView from './AnalyticsView';
 
 const BrandDashboard: React.FC = () => {
-    const { products, stats, enrichmentStats, loading, fetchData, runPipeline } = useBrandData();
+    const { products, stats, enrichmentStats, loading, fetchData, runPipeline, refreshScores } = useBrandData();
     const [activeTab, setActiveTab] = useState<'products' | 'analytics'>('products');
 
     const handleExport = () => {
@@ -43,30 +43,26 @@ const BrandDashboard: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-4">
-                        {/* Enrichment Status */}
+                        {/* Status Info */}
                         <div className="hidden lg:flex flex-col items-end mr-4">
                             <div className="flex items-center gap-2">
                                 <span className={`w-2 h-2 rounded-full ${enrichmentStats.isRunning ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'}`}></span>
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                    Enriquecimiento: {Math.round((enrichmentStats.enriched / (enrichmentStats.total || 1)) * 100)}%
+                                    {enrichmentStats.isRunning ? 'Scraping Active' : 'Auditoría al día'}
                                 </span>
                             </div>
                             <span className="text-[9px] text-slate-500 font-medium">
-                                {enrichmentStats.enriched} Enriquecidos / {enrichmentStats.pending} Pendientes
+                                {stats.last_audit ? `Último Audit: ${new Date(stats.last_audit).toLocaleString()}` : 'No audit data'}
                             </span>
                         </div>
 
                         <button
-                            onClick={runPipeline}
-                            disabled={enrichmentStats.isRunning}
-                            className={`flex items-center gap-2 px-5 py-2 rounded-full border transition-all active:scale-95 disabled:opacity-50 ${enrichmentStats.isRunning
-                                    ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
-                                    : 'bg-brand-500 hover:bg-brand-600 text-white border-brand-400/30'
-                                }`}
+                            onClick={refreshScores}
+                            className="flex items-center gap-2 px-5 py-2 rounded-full bg-brand-500 hover:bg-brand-600 text-white border border-brand-400/30 transition-all active:scale-95 shadow-[0_0_15px_rgba(var(--brand-500),0.2)]"
                         >
-                            <TrendingUp className={`w-3.5 h-3.5 ${enrichmentStats.isRunning ? 'animate-bounce' : ''}`} />
+                            <Shield className="w-3.5 h-3.5" />
                             <span className="text-xs font-bold uppercase tracking-wider">
-                                {enrichmentStats.isRunning ? 'Running Pipeline...' : 'Run Pipeline'}
+                                Refresh Scores
                             </span>
                         </button>
 

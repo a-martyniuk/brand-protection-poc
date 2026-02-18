@@ -56,6 +56,7 @@ export interface DashboardStats {
     high_risk: number;
     medium_risk: number;
     low_risk: number;
+    last_audit?: string;
 }
 
 export type RiskFilter = 'ALL' | 'Alto' | 'Medio' | 'Bajo';

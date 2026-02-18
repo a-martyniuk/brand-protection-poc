@@ -129,6 +129,15 @@ export const useBrandData = () => {
         }
     };
 
+    const refreshScores = async () => {
+        try {
+            await fetch('http://localhost:8000/audit/refresh', { method: 'POST' });
+            setTimeout(fetchData, 2000); // Give it a moment to start
+        } catch (err) {
+            alert('Error refreshing scores. Is api_bridge.py running?');
+        }
+    };
+
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
@@ -177,7 +186,8 @@ export const useBrandData = () => {
                 cleaned: 0,
                 high_risk: highRiskCount || 0,
                 medium_risk: mediumRiskCount || 0,
-                low_risk: lowRiskCount || 0
+                low_risk: lowRiskCount || 0,
+                last_audit: auditData?.[0]?.processed_at
             });
 
             await fetchEnrichmentStats();
@@ -197,5 +207,5 @@ export const useBrandData = () => {
         return () => clearInterval(interval);
     }, [fetchData, fetchEnrichmentStats]);
 
-    return { products, stats, enrichmentStats, loading, fetchData, runPipeline };
+    return { products, stats, enrichmentStats, loading, fetchData, runPipeline, refreshScores };
 };
