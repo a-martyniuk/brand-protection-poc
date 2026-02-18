@@ -56,10 +56,12 @@ class SupabaseHandler:
 
     def log_compliance_audit(self, audit_data):
         """
-        Inserts audit results into the 'compliance_audit' table.
+        Upserts audit results into the 'compliance_audit' table.
         """
         try:
-            response = self.supabase.table("compliance_audit").insert(audit_data).execute()
+            response = self.supabase.table("compliance_audit").upsert(
+                audit_data, on_conflict="listing_id"
+            ).execute()
             return response.data
         except Exception as e:
             print(f"Error logging compliance audit: {e}")
