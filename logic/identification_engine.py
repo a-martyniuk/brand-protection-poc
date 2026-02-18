@@ -187,8 +187,17 @@ class IdentificationEngine:
             # Medical Consumables (Exclude from match with Nutritional Products)
             "guia", "set de gravedad", "set enfit", "equipo de alimentacion", "sonda", 
             "bomba de alimentacion", "jeringa", "prolongador", "conexion",
-            # Books & Educational (Conflicts with Fortini authors or similar)
-            "libro", "tomo", "geometria", "contables", "manual", "tratado", "diccionario", "enciclopedia", "usado"
+            # Books, Publishing & Authors (Conflicts with Fortini, etc.)
+            "libro", "tomo", "geometria", "contables", "manual", "tratado", "diccionario", "enciclopedia", "usado",
+            "novela", "editorial", "tapa blanda", "tapa dura", "inedite", "nabu pr", " Nabú", "autor", "escritor",
+            "pietro fortini", "annalisa fortini", "fortini brown", "franco fortini", "sara fortini",
+            # Religion & History (Conflicts with Fortini names)
+            "padre", "cristocentrica", "educacion cristocentrica", "vaticano", "papa", "religioso", "teologia", "renacimiento", "venecia",
+            "arte y vida", "bloodlines", "venetian",
+            # Media & Music
+            "cd ", "disco", "musica", "artista", "sencillo", "album", "pista",
+            # Electronics & Specialized Tech (Common Search Noise)
+            "gps", "tracker", "localizador", "rastreador", "monofasico", "trifasico", "control de accesos", "rfid", "gsm", "wcdma", "central de control"
         ]
         if any(kw in title_lower for kw in exclusion_keywords):
             return 0, 0, None # Hard rejection for pet or unrelated pharma products
