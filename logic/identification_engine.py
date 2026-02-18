@@ -196,8 +196,15 @@ class IdentificationEngine:
             "arte y vida", "bloodlines", "venetian",
             # Media & Music
             "cd ", "disco", "musica", "artista", "sencillo", "album", "pista",
-            # Electronics & Specialized Tech (Common Search Noise)
-            "gps", "tracker", "localizador", "rastreador", "monofasico", "trifasico", "control de accesos", "rfid", "gsm", "wcdma", "central de control"
+            # Electronics, Security & specialized Tech (Common Noise)
+            "gps", "tracker", "localizador", "rastreador", "rele", "gsm", "alarma", "electrificador", "smart watch", "grasa disipadora", 
+            "celular", "antena", "arduino", "modulo gprs", "sirena", "domotica", "control de accesos", "rfid", "wcdma", "central de control",
+            "monofasico", "trifasico", "avisador", "electrificacion", "comunicador eventos", "g100", "genno", "zkteco", "inbio", "rastreo",
+            "shiel sim", "gprs bds", "transmision voz", "posicionamiento", "abre portones", "barreras", "vecinal", "intelbras",
+            # Fitness & Sports
+            "fitness", "aerobic", "plataforma escalon", "balines", "tiro al blanco", "gamo pro", "precisión", "cast irons", "afeitadora", "cortapatillas",
+            # Hardware & Misc Noise
+            "fijo rural", "gabinete verde", "videojuego", "monstruos galacticos"
         ]
         if any(kw in title_lower for kw in exclusion_keywords):
             return 0, 0, None # Hard rejection for pet or unrelated pharma products
