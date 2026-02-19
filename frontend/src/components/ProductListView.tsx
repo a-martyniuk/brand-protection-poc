@@ -166,67 +166,69 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading }) 
                     </div>
 
                     {/* Product Rows */}
-                    <div
-                        key={product.id}
-                        onClick={() => setSelectedProduct(product)}
-                        className="grid grid-cols-1 md:grid-cols-[80px_1fr_150px_200px_120px_100px_100px_120px] gap-4 items-center p-4 bg-slate-900/40 hover:bg-slate-900/60 border border-white/5 hover:border-brand-500/30 rounded-2xl cursor-pointer transition-all group"
-                    >
-                        {/* Thumbnail */}
-                        <div className="hidden md:block">
-                            {product.thumbnail ? (
-                                <img src={product.thumbnail} alt={product.title} className="w-16 h-16 rounded-xl object-cover border border-white/10" />
-                            ) : (
-                                <div className="w-16 h-16 rounded-xl bg-slate-800 border border-white/10" />
-                            )}
-                        </div>
-
-                        {/* Title */}
-                        <div className="flex flex-col">
-                            <span className="text-sm font-bold text-white group-hover:text-brand-400 transition-colors line-clamp-2">{product.title}</span>
-                            <span className="text-xs text-slate-500 mt-1">ID: {product.meli_id}</span>
-                        </div>
-
-                        {/* Matched Brand */}
-                        <div className="flex flex-col">
-                            <span className="text-[10px] uppercase font-bold text-slate-500 mb-1">Brand</span>
-                            <span className={`text-sm font-bold ${product.master_product?.brand ? 'text-brand-300' : 'text-slate-600'}`}>
-                                {product.master_product?.brand || 'Identificando...'}
-                            </span>
-                        </div>
-
-                        {/* Seller */}
-                        <div className="flex flex-col">
-                            <span className="text-sm text-slate-300">{product.seller}</span>
-                            <span className="text-xs text-slate-500">{product.seller_location}</span>
-                        </div>
-
-                        {/* Price */}
-                        <div className="text-sm font-bold text-emerald-400">
-                            ${product.price.toLocaleString('es-AR')}
-                        </div>
-
-                        {/* Match Level */}
-                        <div>
-                            {getMatchBadge(product.match_level)}
-                        </div>
-
-                        {/* Fraud Score */}
-                        <div className="flex items-center gap-2">
-                            <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
-                                <div
-                                    className={`h-full transition-all ${product.fraud_score > 60 ? 'bg-red-500' : product.fraud_score > 30 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                                    style={{ width: `${product.fraud_score}%` }}
-                                />
+                    {sortedProducts.map(product => (
+                        <div
+                            key={product.id}
+                            onClick={() => setSelectedProduct(product)}
+                            className="grid grid-cols-1 md:grid-cols-[80px_1fr_150px_200px_120px_100px_100px_120px] gap-4 items-center p-4 bg-slate-900/40 hover:bg-slate-900/60 border border-white/5 hover:border-brand-500/30 rounded-2xl cursor-pointer transition-all group"
+                        >
+                            {/* Thumbnail */}
+                            <div className="hidden md:block">
+                                {product.thumbnail ? (
+                                    <img src={product.thumbnail} alt={product.title} className="w-16 h-16 rounded-xl object-cover border border-white/10" />
+                                ) : (
+                                    <div className="w-16 h-16 rounded-xl bg-slate-800 border border-white/10" />
+                                )}
                             </div>
-                            <span className="text-xs font-bold text-slate-400">{product.fraud_score}</span>
-                        </div>
 
-                        {/* Risk Level */}
-                        <div className="flex items-center justify-between">
-                            {getRiskBadge(product.risk_level)}
-                            <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-brand-400 transition-colors" />
+                            {/* Title */}
+                            <div className="flex flex-col">
+                                <span className="text-sm font-bold text-white group-hover:text-brand-400 transition-colors line-clamp-2">{product.title}</span>
+                                <span className="text-xs text-slate-500 mt-1">ID: {product.meli_id}</span>
+                            </div>
+
+                            {/* Matched Brand */}
+                            <div className="flex flex-col">
+                                <span className="text-[10px] uppercase font-bold text-slate-500 mb-1">Brand</span>
+                                <span className={`text-sm font-bold ${product.master_product?.brand ? 'text-brand-300' : 'text-slate-600'}`}>
+                                    {product.master_product?.brand || 'Identificando...'}
+                                </span>
+                            </div>
+
+                            {/* Seller */}
+                            <div className="flex flex-col">
+                                <span className="text-sm text-slate-300">{product.seller}</span>
+                                <span className="text-xs text-slate-500">{product.seller_location}</span>
+                            </div>
+
+                            {/* Price */}
+                            <div className="text-sm font-bold text-emerald-400">
+                                ${product.price.toLocaleString('es-AR')}
+                            </div>
+
+                            {/* Match Level */}
+                            <div>
+                                {getMatchBadge(product.match_level)}
+                            </div>
+
+                            {/* Fraud Score */}
+                            <div className="flex items-center gap-2">
+                                <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full transition-all ${product.fraud_score > 60 ? 'bg-red-500' : product.fraud_score > 30 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                        style={{ width: `${product.fraud_score}%` }}
+                                    />
+                                </div>
+                                <span className="text-xs font-bold text-slate-400">{product.fraud_score}</span>
+                            </div>
+
+                            {/* Risk Level */}
+                            <div className="flex items-center justify-between">
+                                {getRiskBadge(product.risk_level)}
+                                <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-brand-400 transition-colors" />
+                            </div>
                         </div>
-                    </div>
+                    ))}
                 </div>
             )}
 
