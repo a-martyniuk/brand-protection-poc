@@ -133,7 +133,8 @@ def cleanup_noise():
             "sancor advanced", "nuskin", "lifepak", "pampita", "collagen", "colágeno", "colageno",
             "total magnesiano", "fidelite", "máscara capilar", "mascara capilar",
             "tapa llenado", "funda compatible", "ufree", "novah",
-            "fresubin", "diasip", "espesan", "frebini", "reconvan", "kas 1000", "kas-1000", "kas1000", "fresenius kabi", "infatrini"
+            "fresubin", "diasip", "espesan", "frebini", "reconvan", "kas 1000", "kas-1000", "kas1000", "fresenius kabi", "infatrini",
+            "licor", "giffard", "lichi-li", "aceite de cocina", "aceite de girasol", "aceite mezcla"
         ]
         
         title_lower = title.lower()

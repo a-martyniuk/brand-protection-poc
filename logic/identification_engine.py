@@ -377,7 +377,9 @@ class IdentificationEngine:
             # Phase 19: Motor & Accessories
             "tapa llenado", "funda compatible", "ufree", "novah",
             # Phase 20: Nutricia Adjacent (Aggressive Noise)
-            "fresubin", "diasip", "espesan", "frebini", "reconvan", "kas 1000", "kas-1000", "kas1000", "fresenius kabi", "infatrini"
+            "fresubin", "diasip", "espesan", "frebini", "reconvan", "kas 1000", "kas-1000", "kas1000", "fresenius kabi", "infatrini",
+            # Phase 21: Liquor & Generic Oils
+            "licor", "giffard", "lichi-li", "aceite de cocina", "aceite de girasol", "aceite mezcla"
         ]
         if any(kw in title_lower for kw in exclusion_keywords):
             return 0, 0, None # Hard rejection for pet or unrelated pharma products
