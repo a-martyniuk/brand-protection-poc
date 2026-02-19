@@ -46,14 +46,15 @@ class IdentificationEngine:
         # 2. Find Volume/Weight: [number] [ml|g|kg|gr]
         unit_val = 0
         unit_type = None
-        vol_match = re.search(r'(\d+[.,]?\d*)\s?(ml|gr|g|kg|l)\b', text)
+        # Phase 20 Enhancement: Support 'grs' and 'gs' suffixes
+        vol_match = re.search(r'(\d+[.,]?\d*)\s?(ml|grs?|gs?|kg|l)\b', text)
         if vol_match:
             unit_val = float(vol_match.group(1).replace(',', '.'))
             unit_type = vol_match.group(2)
-            if unit_type == 'kg' or unit_type == 'l':
+            if unit_type in ['kg', 'l']:
                 unit_val *= 1000
                 unit_type = 'g' if unit_type == 'kg' else 'ml'
-            elif unit_type == 'gr':
+            elif unit_type in ['gr', 'grs', 'g', 'gs']:
                 unit_type = 'g'
 
         # Calculate estimated KG
@@ -112,13 +113,14 @@ class IdentificationEngine:
         
         if l_net_str:
             # Simple extraction from structured "800g" or "1kg"
-            val_match = re.search(r'(\d+[.,]?\d*)\s?(ml|gr|g|kg|l)', str(l_net_str).lower())
+            # Phase 20 Enhancement: Support 'grs' and 'gs' suffixes
+            val_match = re.search(r'(\d+[.,]?\d*)\s?(ml|grs?|gs?|kg|l)', str(l_net_str).lower())
             if val_match:
                 val = float(val_match.group(1).replace(',', '.'))
                 unit = val_match.group(2)
                 
                 unit_weight = 0
-                if unit in ['g', 'gr']:
+                if unit in ['g', 'gr', 'grs', 'gs']:
                     unit_weight = val / 1000
                 elif unit in ['kg', 'l']:
                     unit_weight = val
@@ -145,7 +147,9 @@ class IdentificationEngine:
             measures = self.extract_measures(title, substance_hint=m_substance)
             l_total_kg = measures.get("total_kg", 0)
         
-        if l_total_kg == 0: return True, 0, l_qty 
+        # If still 0, we treat it as Warning (False) instead of Silent OK (True)
+        # to avoid misleading dashboard messages even if price is OK.
+        if l_total_kg == 0: return False, 0, l_qty 
         
         # Scaling master weight by detected quantity for benchmark
         expected_total_kg = m_net * l_qty
