@@ -231,7 +231,97 @@ class IdentificationEngine:
             # Sports Nutrition
             "whey protein", "masa muscular", "gold nutrition", "onefit",
             # Collectibles & Misc
-            "postal", "russia", "stars", "biberones", "almohada", "flocadora", "plantas acuaticas", "estanques", "juntas de moto", "yamaha", "consola central"
+            "postal", "russia", "stars", "biberones", "almohada", "flocadora", "plantas acuaticas", "estanques", "juntas de moto", "yamaha", "consola central",
+            # Phase 6: Misc Supplements (Out of Scope)
+            "centella forte", "osteo-gen", "omega-3", "omega 3", "resveratrol", "andrographis", "genciana", "genikinoko", "hepatodiates", "quelat", "enzimas digestivas", "digestive enzymes", "microbiota",
+            # Phase 6: Fitness & Gym Gear
+            "protector cervical", "barra alta densidad", "aro flexible", "flex ring", "pilates",
+            # Phase 6: Photography/Electronics
+            "triopo", "disparador radio", "flash", "repuesto g2 pro",
+            # Phase 6: Baby/Clothing
+            "baberos", "babero",
+            # Phase 6: Out-of-Scope Brands
+            "fynutrition", "eth nutrition", "provefarma", "geonat", "igennus", "pharmepa", "genestra", "herb pharm", "euromedica", "qol labs", "physician's choice",
+            # Phase 7: Garden/Insecticides/Herbicides
+            "glacoxan", "hormiga", "grillo topo", "insecticida", "herbicida", "acaros", "minador",
+            # Phase 7: Motorcycle Gear
+            "casco", "ls2", "modular", "rebatible",
+            # Phase 7: Herbal/Medicinal Plants
+            "tintura madre", "amor de hortelano", "galium aparine", "galio", "hierbas medicinales", "hepatoprotector", "boldo", "alcachofa",
+            # Phase 7: Cleaning/Chemicals (Misc)
+            "alginato sodio", "gluconolactato calcio", "gastronomia molecular", "percarbonato", "jabón cítrico", "blanqueador",
+            # Phase 7: Out-of-Scope Brands (Supplements)
+            "lifeseasons", "dr. mercola", "swanson", "xtrenght", "body advance", "picolinato de cromo", "nutricost",
+            # Phase 7: Baby Gear & Misc
+            "columpio", "mecedor", "joie", "salon line", "todecacho", "gelatina definición", "pazos", "daemonium",
+            # Phase 8: Amino Acids & Supplements (Out of Scope)
+            "serina", "fosfatidilserina", "berberina", "berberine", "melena de leon", "mct oil", "rigo beet", "maca", "nutrirte", "frutalax", "hibiscus", "amilasa", "amiloglucosidasa",
+            # Phase 8: Cosmetics & Hair Care
+            "plex", "bioplex", "protector decoloración", "clorhexidina", "jabón líquido", "duplex",
+            # Phase 8: Action Figures & Toys
+            "action fig", "custom scale", "male action",
+            # Phase 8: Obscure Books & Titles
+            "galaxian", "salumagia", "cataclismo",
+            # Phase 8: Out-of-Scope Brands
+            "corpo-fuerte", "carlyle", "dra coco march", "god bless you", "leguilab", "primaforce", "nutricost",
+            # Phase 9: Gummies & Candy-like Supplements
+            "gomitas", "gominolas", "moorgumy", "joyli", "agumoon", "u-cubes", "musgo marino",
+            # Phase 9: Books & Educational/Medical Info
+            "pituitaria", "galactorrea", "inductor quiral", "oxiranos", "montacargas galactico", "sintesis de",
+            # Phase 9: Electronics & General Tools
+            "cartucho hp", "gopro", "bateria recargable", "dispenser",
+            # Phase 9: Fashion, Travel & Accessories
+            "broches", "mochila", "llavero", "bolso", "pinza para el pelo", "lentejuelas", "vintage",
+            # Phase 9: Toys & Collectibles
+            "pokemon", "tcg", "smiling critters", "poppy playtime", "booster box", "mazo de batalla",
+            # Phase 9: Construction & Hardware
+            "brea pasta", "asfaltica", "parches autoadhesivos", "reparación de chaquetas",
+            # Phase 9: Baby Misc
+            "chupete", "clip bebé",
+            # Phase 9: Out-of-Scope Brands & Specific Supps
+            "omnilife", "biocros", "teatino", "theanine", "caffeine", "navitas organics", "nutrifoods", "batata morada", "lopecian", "curflex", "cúrcuma", "solgar",
+            # Phase 10: Adaptogens & Natural Treatments (Misc)
+            "reishi", "adaptógenos", "la aldea mdp", "mango orgánico", "diabetes", "hierbas naturales",
+            # Phase 10: Clothing & Fashion
+            "calcetines", "monedero", "tarjetero", "chaleco", "puffer", "ecocuero",
+            # Phase 10: Books (Educational & Fiction)
+            "bachillerato", "navarro francisco", "living with pku", "el dorado cósmico", "margarita del mazo", "the flock",
+            # Phase 10: Misc Home & Gear
+            "ungüento", "katité", "luz de señalización", "señal de giro", "party supplies", "navidad", "codera", "soporte para codo", "miniaturas dnd", "tubbz",
+            # Phase 10: Action Figure Clothing
+            "panchitalk", "tbleague", "phic",
+            # Phase 10: Out-of-Scope Brands
+            "leslabs", "standard process", "now foods", "now suplementos", "primal fx", "dr. ludwig johnson", "okf safari",
+            # Phase 11: Baby Gear & Toys
+            "ganchos de cochecito", "teether", "silla baño", "bañera", "disfraz", "halloween", "costume",
+            # Phase 11: Moto & Engine Parts
+            "junta carter", "junta base", "jailing", "junta cabezal", "honda pc", "guerrero gr6",
+            # Phase 11: Home & Decor noise
+            "cerámica", "porcelana", "lechera", "colgante", "mouse pad", "perfil ducal", "nariz escalon", "horquillas",
+            # Phase 11: Collectibles & History
+            "moneda", "franco", "replica", "ducado", "ducale", "casa ducal", "ducado de pastrana", "medinacelli", "duna", "monopolio",
+            # Phase 11: Sports & Performance (Hard Rejection)
+            "genetic", "testo", "sex man", "promarine", "legion fortify", "termofit",
+            # Phase 11: Misc Health (Out of scope)
+            "nutrinat", "adelgaza-t", "vitalpet", "artrofix", "cordyceps", "huevas de erizo",
+            # Phase 11: Books (More labels)
+            "metaprompts", "grimoire", "promocion artistica",
+            # Phase 12: Liquor & Aperitifs
+            "damonjag", "damonjäg", "hodlmoser", "krauterlikor", "licor de hierbas", "vaso acrílico", "posavasos",
+            # Phase 12: Pool Chemicals
+            "clarificador", "alguicida", "cacique",
+            # Phase 12: Industrial & Chemistry
+            "propilenglicol", "glicerina vegetal",
+            # Phase 12: Food & Cooking
+            "espesante", "almidón", "fecula de mandioca", "dicomere", "mandioca",
+            # Phase 12: General Health & Cosmetics (Out of scope)
+            "pulver", "nutrex", "biobellus", "atlhetica nutrition", "pellcare", "vitalil", "rubor", "i landa", "cosmética natural",
+            # Phase 12: Misc Home & Moto
+            "calefon", "zanella", "sapucai", "junta tapa",
+            # Phase 12: Legal & Books (Labels)
+            "ponce padilla", "defensa de la constitución", "ordenanza municipal", "baraja de cartas",
+            # Phase 13: Olive Oil & Broad Food
+            "aceite oliva", "virgen extra", "botellón", "fecula de mandioca", "almidón", "dicomere"
         ]
         if any(kw in title_lower for kw in exclusion_keywords):
             return 0, 0, None # Hard rejection for pet or unrelated pharma products
