@@ -88,7 +88,7 @@ class IdentificationEngine:
         m_net = float(master_product.get("fc_net") or 0)
         m_substance = (master_product.get("substance") or "").lower()
         
-        if m_net == 0: return True, 0
+        if m_net == 0: return True, 0, 1
         
         # 1. Try to use Enriched Structured Attributes for Volume
         l_net_str = listing_attrs.get("net_content") or listing_attrs.get("weight") or listing_attrs.get("peso neto")
@@ -203,8 +203,35 @@ class IdentificationEngine:
             "shiel sim", "gprs bds", "transmision voz", "posicionamiento", "abre portones", "barreras", "vecinal", "intelbras",
             # Fitness & Sports
             "fitness", "aerobic", "plataforma escalon", "balines", "tiro al blanco", "gamo pro", "precisión", "cast irons", "afeitadora", "cortapatillas",
-            # Hardware & Misc Noise
-            "fijo rural", "gabinete verde", "videojuego", "monstruos galacticos"
+            # Construction, Hardware & Adhesives
+            "impermeabilizante", "sella fisuras", "tapa goteras", "gotita", "voligoma", "pegamento", "sellador", "caucho goma", "terrazas", "terrasas", "liquitech",
+            # Beauty, Dermo-cosmetics & Personal Care
+            "criogel", "lidherma", "labial", "brillo", "afirmante", "anticelulitico", "locion", "karite", "lip gloss", "micropigmentador", "cuidado de la piel",
+            # Cleaning, Chemicals & Home
+            "limpiador", "líquido rigel", "lavanda", "colonia", "pino", "cherry", "colchon", "inflable", "camping", "flocar césped", "bateria portátil",
+            # Pharma/Supplements (Out of Scope)
+            "peptona", "linfar", "peptonum", "cambrooke", "ketovie", "cetogenik", "ketologic", "ketomeal", "digecaps", "floragut", "cisteina", "vitalis", "hongo cola de pavo",
+            # Pets & Animal Care
+            "vitalcan", "perro", "cachorro", "gato", "mascota", "alimento balanceado", "alimento seco",
+            # Car Care & Detailing
+            "detailing", "pulido", "pasta para pulir", "zeocar", "pastas de pulir",
+            # Aquarium, Garden & Tools
+            "acuario", "pecera", "acuarios", "carbón activado", "namaste biomineral", "oro negro", "fertilizante", "calculadora", "tester", "medidor ph", "electrodo", "medidor",
+            # Hygiene, Beauty & Misc Home
+            "cepillo dental", "shampoo", "mascarilla", "toilette", "kaiak", "perfume", "otowil", "almendras", "aceite de oliva", "siete lagos", "flota flota", "flotador",
+            # Automotive Maintenance & Oils
+            "amortiguador", "cazoleta", "crapodina", "fusible", "filtro", "castrol", "motul", "valvoline", "liqui moly", "motorcraft", "ac delco", "gulf pride", "shell helix", "total quartz",
+            "aceite mineral", "aceite sintetico", "aceite moto", "aceite motor", "20w50", "10w40", "5w30", "actevo",
+            # Pool, Tools & Toys
+            "floculante", "mak floc", "piscina", "pileta", "cloro", "compresor", "michelin", "maxi bag", "film autoadherente", "x-shot", "municiones", "goma espuma",
+            # Barber & Haircutting
+            "yilho", "maquina de corte", "maquina patillera", "cuchilla oster", "cool care", "corte de pelo", "recortador", "nasal", "babyliss", "wahl", "andis", "shampoo barber",
+            # Personal Care & Hair Loss (Verify if Valcatil is noise) - Keeping it for now if it's unrelated, but being cautious
+            "valcatil", "anticaida", "dentifix", "calostro",
+            # Sports Nutrition
+            "whey protein", "masa muscular", "gold nutrition", "onefit",
+            # Collectibles & Misc
+            "postal", "russia", "stars", "biberones", "almohada", "flocadora", "plantas acuaticas", "estanques", "juntas de moto", "yamaha", "consola central"
         ]
         if any(kw in title_lower for kw in exclusion_keywords):
             return 0, 0, None # Hard rejection for pet or unrelated pharma products

@@ -47,7 +47,22 @@ def cleanup_noise():
             "monofasico", "trifasico", "avisador", "electrificacion", "comunicador eventos", "g100", "genno", "zkteco", "inbio", "rastreo",
             "shiel sim", "gprs bds", "transmision voz", "posicionamiento", "abre portones", "barreras", "vecinal", "intelbras",
             "fitness", "aerobic", "plataforma escalon", "balines", "tiro al blanco", "gamo pro", "precisión", "cast irons", "afeitadora", "cortapatillas",
-            "fijo rural", "gabinete verde", "videojuego", "monstruos galacticos"
+            "impermeabilizante", "sella fisuras", "tapa goteras", "gotita", "voligoma", "pegamento", "sellador", "caucho goma", "terrazas", "terrasas", "liquitech",
+            "criogel", "lidherma", "labial", "brillo", "afirmante", "anticelulitico", "locion", "karite", "lip gloss", "micropigmentador", "cuidado de la piel",
+            "limpiador", "líquido rigel", "lavanda", "colonia", "pino", "cherry", "colchon", "inflable", "camping", "flocar césped", "bateria portátil",
+            "fijo rural", "gabinete verde", "videojuego", "monstruos galacticos", "licorice", "herbera", "voluminizador",
+            "peptona", "linfar", "peptonum", "cambrooke", "ketovie", "cetogenik", "ketologic", "ketomeal", "digecaps", "floragut", "cisteina", "vitalis", "hongo cola de pavo",
+            "vitalcan", "perro", "cachorro", "gato", "mascota", "alimento balanceado", "alimento seco",
+            "detailing", "pulido", "pasta para pulir", "zeocar", "pastas de pulir",
+            "acuario", "pecera", "acuarios", "carbón activado", "namaste biomineral", "oro negro", "fertilizante", "calculadora", "tester", "medidor ph", "electrodo", "medidor",
+            "cepillo dental", "shampoo", "mascarilla", "toilette", "kaiak", "perfume", "otowil", "almendras", "aceite de oliva", "siete lagos", "flota flota", "flotador",
+            "amortiguador", "cazoleta", "crapodina", "fusible", "filtro", "castrol", "motul", "valvoline", "liqui moly", "motorcraft", "ac delco", "gulf pride", "shell helix", "total quartz",
+            "aceite mineral", "aceite sintetico", "aceite moto", "aceite motor", "20w50", "10w40", "5w30", "actevo",
+            "floculante", "mak floc", "piscina", "pileta", "cloro", "compresor", "michelin", "maxi bag", "film autoadherente", "x-shot", "municiones", "goma espuma",
+            "yilho", "maquina de corte", "maquina patillera", "cuchilla oster", "cool care", "corte de pelo", "recortador", "nasal", "babyliss", "wahl", "andis", "shampoo barber",
+            "valcatil", "anticaida", "dentifix", "calostro",
+            "whey protein", "masa muscular", "gold nutrition", "onefit",
+            "postal", "russia", "stars", "biberones", "almohada", "flocadora", "plantas acuaticas", "estanques", "juntas de moto", "yamaha", "consola central"
         ]
         
         title_lower = title.lower()
