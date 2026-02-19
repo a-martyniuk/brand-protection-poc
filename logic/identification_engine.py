@@ -321,7 +321,59 @@ class IdentificationEngine:
             # Phase 12: Legal & Books (Labels)
             "ponce padilla", "defensa de la constitución", "ordenanza municipal", "baraja de cartas",
             # Phase 13: Olive Oil & Broad Food
-            "aceite oliva", "virgen extra", "botellón", "fecula de mandioca", "almidón", "dicomere"
+            "aceite oliva", "virgen extra", "botellón", "fecula de mandioca", "almidón", "dicomere",
+            # Phase 14: Keto, MCT & Food Noise
+            "alfajor", "keto", "low carb", "dátil", "mayonesa", "salsa", "harina", "cetomix",
+            # Phase 14: Competitor & Large Health Brands
+            "ensure", "glucerna", "abbott", "natier", "nutrinías", "ahora suplementos", "gentech", "hochsport",
+            # Phase 14: Sports & Misc Supplements
+            "creatina", "mct líquido", "aceite mct", "natural whey", "propoleo",
+            # Phase 14: Beauty, Hair & Clothing
+            "alisado", "liss expert", "l'oréal", "loreal", "babydoll", "conejita", "ropa interior", "adornos navideños",
+            # Phase 14: Auto & Books (Misc)
+            "ypf extravida", "extravida", "bestway", "intex", "fluoretação", "heroina intergalactica", "maximalismo", "una historia de",
+            # Phase 15: Competitors (Baby Milk)
+            "sancor bebe", "sancor bebé", "nido", "hero baby",
+            # Phase 15: Generic Milks & Basic Foods
+            "leche entera", "leche descremada", "leche en polvo", "larga vida", "fortificada",
+            # Phase 15: Health & Beauty Noise
+            "arcor bagó", "arcor bago", "star nutrition", "centrum", "la roche-posay", "roche-posay", "alfaparf", "alta moda", "serum", "sérum", "hialurónico", "colágeno", "colageno", "magnesio",
+            # Phase 15: Misc & Hardware
+            "hypertherm", "tobera", "tapete", "foam infantil", "maternidad", "vestido", "hartmann", "simplicius", "linanthus",
+            # Phase 16: Shake & Competitor Specialists
+            "shake mix", "remplaza comida", "comida con", "comidamed", "aminomeed",
+            # Phase 16: Motor Parts (Gaskets)
+            "juego de juntas", "juntas para moto", "junta completa", "juki", "morini", "mondial", "honda c 90", "honda c90",
+            # Phase 16: Lingerie & Sexy Clothing
+            "lencería", "sexual", "sexy", "encaje", "pijama", "camisola", "body sexy",
+            # Phase 16: Baby Gear & Toys
+            "cortapelo", "audifonos baby", "baby bump", "hair clip", "tummy time", "juguetes sensoriales",
+            # Phase 16: Misc Home & Specialized Health
+            "dulkre", "edulcorante", "plato decorativo", "crown ducal", "etiquetas escolares", "lubricante intimo", "lubrigel", "refresh liquigel", "gotas lubricantes", "monoherb", "tremella",
+            # Phase 17: Motor & Industrial (Kawasaki, Electrical)
+            "kawasaki", "adly", "siambretta", "vimergy", "cable acelerador", "bomba de aceite", "grasa litio", "bulbo sensor", "sensor presion", "interruptor termomagnetico", "interruptor termomagnético", "aceite caja",
+            # Phase 17: Clothing & Baby Safety
+            "remera", "body bebe", "body bebé", "candado de seguridad", "regaliz",
+            # Phase 17: Specialized Supplements & Hair
+            "pudding", "protein factory", "syntha-6", "syntha 6", "goma xantica", "syrup fusion", "oleos vitales", "system 3",
+            # Phase 18: Nootropics & Specialized Supplements
+            "bacopa", "tmgenex", "tmg genex", "nootropics", "threonato", "neuro-protección", "vitamina k completa",
+            # Phase 18: Competitors (Specialist Milk)
+            "aminomed", "souvenaid", "fresenius kabi", "nutribio",
+            # Phase 18: Industrial & Tooling
+            "jebao", "diodo doble", "boyero eléctrico", "regulador de carga", "pedal max", "aceite gulf", "pegamil", "bulit azul",
+            # Phase 18: Food & Oil Misc
+            "aceite de coco", "aceite de ricino", "ducoco", "maniax", "maxim white", "mocha gold",
+            # Phase 18: Misc (Books & CDs)
+            "mamimiau", "pastrana", "usa import cd",
+            # Phase 19: Competitors & Specific Lines
+            "sancor advanced", "nuskin", "lifepak", "pampita", "collagen", "colágeno", "colageno",
+            # Phase 19: Generic Pharma & Hair
+            "total magnesiano", "fidelite", "máscara capilar", "mascara capilar",
+            # Phase 19: Motor & Accessories
+            "tapa llenado", "funda compatible", "ufree", "novah",
+            # Phase 20: Nutricia Adjacent (Aggressive Noise)
+            "fresubin", "diasip", "espesan", "frebini", "reconvan", "kas 1000", "kas-1000", "kas1000", "fresenius kabi", "infatrini"
         ]
         if any(kw in title_lower for kw in exclusion_keywords):
             return 0, 0, None # Hard rejection for pet or unrelated pharma products
