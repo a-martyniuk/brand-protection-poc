@@ -85,7 +85,8 @@ async def run_pipeline():
     print("Running Identification & Compliance Audit...")
     audit_records = []
     
-    for l in raw_listings:
+    # Use unique_listings values instead of raw_listings to avoid duplicate audit records
+    for l in unique_listings.values():
         if l["meli_id"] not in meli_to_uuid: continue
         
         listing_uuid = meli_to_uuid[l["meli_id"]]

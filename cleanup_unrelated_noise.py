@@ -41,7 +41,7 @@ def cleanup_noise():
             "novela", "editorial", "tapa blanda", "tapa dura", "inedite", "nabu pr", "autor", "escritor",
             "pietro fortini", "annalisa fortini", "fortini brown", "franco fortini", "sara fortini",
             "padre", "cristocentrica", "vaticano", "papa", "religioso", "teologia", "renacimiento", "venecia",
-            "arte y vida", "bloodlines", "venetian", "cd ", "disco", "musica", "artista", "sencillo", "album", "pista",
+            "arte y vida", "bloodlines", "venetian", "disco", "musica", "artista", "sencillo", "pista",
             "gps", "tracker", "localizador", "rastreador", "rele", "gsm", "alarma", "electrificador", "smart watch", "grasa disipadora", 
             "celular", "antena", "arduino", "modulo gprs", "sirena", "domotica", "control de accesos", "rfid", "wcdma", "central de control",
             "monofasico", "trifasico", "avisador", "electrificacion", "comunicador eventos", "g100", "genno", "zkteco", "inbio", "rastreo",
@@ -74,7 +74,7 @@ def cleanup_noise():
             "alginato sodio", "gluconolactato calcio", "gastronomia molecular", "percarbonato", "jabón cítrico", "blanqueador",
             "lifeseasons", "dr. mercola", "swanson", "xtrenght", "body advance", "picolinato de cromo", "nutricost",
             "columpio", "mecedor", "joie", "salon line", "todecacho", "gelatina definición", "pazos", "daemonium",
-            "serina", "fosfatidilserina", "berberina", "berberine", "melena de leon", "mct oil", "rigo beet", "maca", "nutrirte", "frutalax", "hibiscus", "amilasa", "amiloglucosidasa",
+            "fosfatidilserina", "berberina", "berberine", "melena de leon", "rigo beet", "maca", "nutrirte", "frutalax", "hibiscus", "amilasa", "amiloglucosidasa",
             "plex", "bioplex", "protector decoloración", "clorhexidina", "jabón líquido", "duplex",
             "action fig", "custom scale", "male action",
             "galaxian", "salumagia", "cataclismo",
@@ -108,9 +108,9 @@ def cleanup_noise():
             "calefon", "zanella", "sapucai", "junta tapa",
             "ponce padilla", "defensa de la constitución", "ordenanza municipal", "baraja de cartas",
             "aceite oliva", "virgen extra", "botellón", "fecula de mandioca", "almidón", "dicomere",
-            "alfajor", "keto", "low carb", "dátil", "mayonesa", "salsa", "harina", "cetomix",
+            "alfajor", "low carb", "dátil", "mayonesa", "salsa", "harina", "cetomix",
             "ensure", "glucerna", "abbott", "natier", "nutrinías", "ahora suplementos", "gentech", "hochsport",
-            "creatina", "mct líquido", "aceite mct", "natural whey", "propoleo",
+            "creatina", "natural whey", "propoleo",
             "alisado", "liss expert", "l'oréal", "loreal", "babydoll", "conejita", "ropa interior", "adornos navideños",
             "ypf extravida", "extravida", "bestway", "intex", "fluoretação", "heroina intergalactica", "maximalismo", "una historia de",
             "sancor bebe", "sancor bebé", "nido", "hero baby",
@@ -126,19 +126,46 @@ def cleanup_noise():
             "remera", "body bebe", "body bebé", "candado de seguridad", "regaliz",
             "pudding", "protein factory", "syntha-6", "syntha 6", "goma xantica", "syrup fusion", "oleos vitales", "system 3",
             "bacopa", "tmgenex", "tmg genex", "nootropics", "threonato", "neuro-protección", "vitamina k completa",
-            "aminomed", "souvenaid", "fresenius kabi", "nutribio",
+            "aminomed", "fresenius kabi", "nutribio",
             "jebao", "diodo doble", "boyero eléctrico", "regulador de carga", "pedal max", "aceite gulf", "pegamil", "bulit azul",
             "aceite de coco", "aceite de ricino", "ducoco", "maniax", "maxim white", "mocha gold",
             "mamimiau", "pastrana", "usa import cd",
             "sancor advanced", "nuskin", "lifepak", "pampita", "collagen", "colágeno", "colageno",
             "total magnesiano", "fidelite", "máscara capilar", "mascara capilar",
             "tapa llenado", "funda compatible", "ufree", "novah",
-            "fresubin", "diasip", "espesan", "frebini", "reconvan", "kas 1000", "kas-1000", "kas1000", "fresenius kabi", "infatrini",
-            "licor", "giffard", "lichi-li", "aceite de cocina", "aceite de girasol", "aceite mezcla"
+            "fresubin", "frebini", "reconvan", "fresenius kabi",
+            "licor", "giffard", "lichi-li", "aceite de cocina", "aceite de girasol", "aceite mezcla",
+            "infantrini", "infartrini", "aceite nativo", "aceite de oliva", "aceite puro",
+            # Phase 23: Aggressive Noise (Identificando...)
+            "casco", "ls2", "escritorio", "fusible", "bateria", "alimento balanceado", "perro", "gato", "asfalto", "brea", "tintura", "ampolla", "rgb", "gamer",
+            "mueble", "silla", "colchoneta", "gimnasia", "pilates", "arduino", "gsm", "gps", "tracker", "alarma", "rele", "relé", "celular", "funda", "vidrio templado",
+            "repuesto", "junta", "motor", "aceite moto", "aceite motor", "lubricante", "afeitadora", "cortapatillas", "perfume", "fragancia",
+            # Phase 24: Screenshot Noise (Identificando... Refined)
+            "puerta", "trasera", "delantera", "baul", "gol trend", "voyage", "muñeco", "figura de carton", "dune", "monopoly", "atlas de rutas", "despolvillador",
+            "yerba", "toalla", "pelota", "mordedor", "juguete de madera", "montessori", "handheld grass", "máquina para césped", "charla interactiva", "moldes para tubos",
+            "gabapentina", "cd ", "libro", "manual", "historia de", "caracterización"
         ]
         
         title_lower = title.lower()
-        if any(kw in title_lower for kw in exclusion_keywords):
+        l_cat = l.get("category", "") or ""
+        
+        # 1. Keyword Rejection
+        is_noise = any(kw in title_lower for kw in exclusion_keywords)
+        
+        # 2. Category Rejection
+        noise_categories = [
+            "Accesorios para Vehículos", "Computación", "Hogar, Muebles y Jardín", 
+            "Animales y Mascotas", "Belleza y Cuidado Personal", "Industrias y Oficinas",
+            "Electrónica, Audio y Video", "Celulares y Teléfonos", "Herramientas", "Construcción",
+            "Libros, Revistas y Comics", "Música, Películas y Series", "Juegos y Juguetes", 
+            "Antigüedades y Colecciones", "Otras categorías"
+        ]
+        if not is_noise and any(nc.lower() in l_cat.lower() for nc in noise_categories):
+            # Bypass for Nutricia items in health categories
+            if not any(b in title_lower for b in ["nutrilon", "vital", "neocate", "fortisip", "fortini"]):
+                is_noise = True
+
+        if is_noise:
             ids_to_delete.append(l["id"])
             deleted_count += 1
             if deleted_count % 10 == 0:

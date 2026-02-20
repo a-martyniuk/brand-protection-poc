@@ -39,7 +39,7 @@ class IdentificationEngine:
                 candidate = int(qty_match.group(1))
                 if candidate > 0 and candidate < 200: # Sanity check for quantity
                     # Ensure it's not immediately followed by a unit of measure
-                    if not re.search(f'{candidate}\\s?(ml|gr|g|kg|l)', text):
+                    if not re.search(f'{candidate}\\s?(ml|gr|g|kg|l)\\b', text):
                         qty = candidate
                         break
             
@@ -199,7 +199,7 @@ class IdentificationEngine:
             "padre", "cristocentrica", "educacion cristocentrica", "vaticano", "papa", "religioso", "teologia", "renacimiento", "venecia",
             "arte y vida", "bloodlines", "venetian",
             # Media & Music
-            "cd ", "disco", "musica", "artista", "sencillo", "album", "pista",
+            "disco", "musica", "artista", "sencillo", "pista",
             # Electronics, Security & specialized Tech (Common Noise)
             "gps", "tracker", "localizador", "rastreador", "rele", "gsm", "alarma", "electrificador", "smart watch", "grasa disipadora", 
             "celular", "antena", "arduino", "modulo gprs", "sirena", "domotica", "control de accesos", "rfid", "wcdma", "central de control",
@@ -259,7 +259,7 @@ class IdentificationEngine:
             # Phase 7: Baby Gear & Misc
             "columpio", "mecedor", "joie", "salon line", "todecacho", "gelatina definición", "pazos", "daemonium",
             # Phase 8: Amino Acids & Supplements (Out of Scope)
-            "serina", "fosfatidilserina", "berberina", "berberine", "melena de leon", "mct oil", "rigo beet", "maca", "nutrirte", "frutalax", "hibiscus", "amilasa", "amiloglucosidasa",
+            "fosfatidilserina", "berberina", "berberine", "melena de leon", "rigo beet", "maca", "nutrirte", "frutalax", "hibiscus", "amilasa", "amiloglucosidasa",
             # Phase 8: Cosmetics & Hair Care
             "plex", "bioplex", "protector decoloración", "clorhexidina", "jabón líquido", "duplex",
             # Phase 8: Action Figures & Toys
@@ -327,11 +327,11 @@ class IdentificationEngine:
             # Phase 13: Olive Oil & Broad Food
             "aceite oliva", "virgen extra", "botellón", "fecula de mandioca", "almidón", "dicomere",
             # Phase 14: Keto, MCT & Food Noise
-            "alfajor", "keto", "low carb", "dátil", "mayonesa", "salsa", "harina", "cetomix",
+            "alfajor", "low carb", "dátil", "mayonesa", "salsa", "harina", "cetomix",
             # Phase 14: Competitor & Large Health Brands
             "ensure", "glucerna", "abbott", "natier", "nutrinías", "ahora suplementos", "gentech", "hochsport",
             # Phase 14: Sports & Misc Supplements
-            "creatina", "mct líquido", "aceite mct", "natural whey", "propoleo",
+            "creatina", "natural whey", "propoleo",
             # Phase 14: Beauty, Hair & Clothing
             "alisado", "liss expert", "l'oréal", "loreal", "babydoll", "conejita", "ropa interior", "adornos navideños",
             # Phase 14: Auto & Books (Misc)
@@ -363,7 +363,7 @@ class IdentificationEngine:
             # Phase 18: Nootropics & Specialized Supplements
             "bacopa", "tmgenex", "tmg genex", "nootropics", "threonato", "neuro-protección", "vitamina k completa",
             # Phase 18: Competitors (Specialist Milk)
-            "aminomed", "souvenaid", "fresenius kabi", "nutribio",
+            "aminomed", "fresenius kabi", "nutribio",
             # Phase 18: Industrial & Tooling
             "jebao", "diodo doble", "boyero eléctrico", "regulador de carga", "pedal max", "aceite gulf", "pegamil", "bulit azul",
             # Phase 18: Food & Oil Misc
@@ -377,12 +377,36 @@ class IdentificationEngine:
             # Phase 19: Motor & Accessories
             "tapa llenado", "funda compatible", "ufree", "novah",
             # Phase 20: Nutricia Adjacent (Aggressive Noise)
-            "fresubin", "diasip", "espesan", "frebini", "reconvan", "kas 1000", "kas-1000", "kas1000", "fresenius kabi", "infatrini",
+            "fresubin", "frebini", "reconvan", "fresenius kabi",
             # Phase 21: Liquor & Generic Oils
-            "licor", "giffard", "lichi-li", "aceite de cocina", "aceite de girasol", "aceite mezcla"
+            "licor", "giffard", "lichi-li", "aceite de cocina", "aceite de girasol", "aceite mezcla",
+            # Phase 22: Typos & Generic Filter Refinement
+            "infantrini", "infartrini", "aceite nativo", "aceite de oliva", "aceite puro",
+            # Phase 23: Aggressive Noise (Identificando...)
+            "casco", "ls2", "escritorio", "fusible", "bateria", "alimento balanceado", "perro", "gato", "asfalto", "brea", "tintura", "ampolla", "rgb", "gamer",
+            "mueble", "silla", "colchoneta", "gimnasia", "pilates", "arduino", "gsm", "gps", "tracker", "alarma", "rele", "relé", "celular", "funda", "vidrio templado",
+            "repuesto", "junta", "motor", "aceite moto", "aceite motor", "lubricante", "afeitadora", "cortapatillas", "perfume", "fragancia",
+            # Phase 24: Screenshot Noise (Identificando... Refined)
+            "puerta", "trasera", "delantera", "baul", "gol trend", "voyage", "muñeco", "figura de carton", "dune", "monopoly", "atlas de rutas", "despolvillador",
+            "yerba", "toalla", "pelota", "mordedor", "juguete de madera", "montessori", "handheld grass", "máquina para césped", "charla interactiva", "moldes para tubos",
+            "gabapentina", "cd ", "libro", "manual", "historia de", "caracterización"
         ]
         if any(kw in title_lower for kw in exclusion_keywords):
-            return 0, 0, None # Hard rejection for pet or unrelated pharma products
+            return 0, 0, None # Hard rejection for noise
+            
+        # 0.1 Category-Based Rejection (Aggressive)
+        noise_categories = [
+            "Accesorios para Vehículos", "Computación", "Hogar, Muebles y Jardín", 
+            "Animales y Mascotas", "Belleza y Cuidado Personal", "Industrias y Oficinas",
+            "Electrónica, Audio y Video", "Celulares y Teléfonos", "Herramientas", "Construcción",
+            "Libros, Revistas y Comics", "Música, Películas y Series", "Juegos y Juguetes", 
+            "Antigüedades y Colecciones", "Otras categorías"
+        ]
+        l_cat = listing_attrs.get("category", "")
+        if any(nc.lower() in l_cat.lower() for nc in noise_categories):
+            # Special bypass for Nutricia-like items in health categories
+            if not any(b in title_lower for b in ["nutrilon", "vital", "neocate", "fortisip", "fortini"]):
+                return 0, 0, None
 
         # 1. Brand Match (Critical)
         l_brand = (listing_attrs.get("brand") or listing_attrs.get("marca") or "").lower()

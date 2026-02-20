@@ -63,8 +63,17 @@ class MeliAPIScraper:
                                 }
                             } catch(e) {}
 
-                            // Direct access to results in preloaded state if possible
+                            // Enhanced mapping from preloaded state
                             const stateResults = preloadedState.results || [];
+                            
+                            // Try to find the "Main Category" of the search result from filters
+                            let mainCategory = categoryName; 
+                            try {
+                                const categoryFilter = (preloadedState.filters || []).find(f => f.id === 'category');
+                                if (categoryFilter && categoryFilter.values && categoryFilter.values.length > 0) {
+                                    mainCategory = categoryFilter.values[categoryFilter.values.length - 1].name;
+                                }
+                            } catch(e) {}
 
                             return Array.from(items).map((item, index) => {
                                 const titleEl = item.querySelector('.ui-search-item__title, .poly-component__title, h2');
@@ -106,7 +115,7 @@ class MeliAPIScraper:
                                 
                                 return {
                                     title: titleEl ? titleEl.innerText : (stateItem.title || 'N/A'),
-                                    price_str: priceEl ? priceEl.innerText.replace(/\\D/g, '') : (stateItem.price || '0'),
+                                    price_str: priceEl ? priceEl.innerText.replace(/\D/g, '') : (stateItem.price || '0'),
                                     url: linkEl ? linkEl.href : (stateItem.permalink || 'N/A'),
                                     thumbnail: imgEl ? imgEl.src : (stateItem.thumbnail || null),
                                     seller_id: seller.id || 'N/A',
@@ -118,7 +127,7 @@ class MeliAPIScraper:
                                         power_seller: reputation.power_seller_status || null,
                                         transactions: reputation.transactions || {}
                                     },
-                                    category: categoryName,
+                                    category: mainCategory, // Using the real category name from MercadoLibre filters
                                     attributes: attributes
                                 };
                             });
