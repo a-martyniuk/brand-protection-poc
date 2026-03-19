@@ -53,6 +53,9 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({ product, onClos
                             {getMatchLevelBadge()}
                             {getRiskBadge()}
                             <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-700/50 text-slate-300">
+                                Stock: {product.available_stock ?? 'N/A'}
+                            </span>
+                            <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-700/50 text-slate-300">
                                 Score: {product.fraud_score}/100
                             </span>
                             <a

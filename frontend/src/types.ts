@@ -21,6 +21,7 @@ export interface ProductAudit {
     price: number;
     thumbnail?: string;
     url: string;
+    available_stock?: number;
 
     // Match and compliance info
     match_level: number; // 0-3 (0=unidentified, 1=EAN, 2=Fuzzy, 3=Suspicious)

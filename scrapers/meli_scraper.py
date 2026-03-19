@@ -236,8 +236,66 @@ class MeliScraper:
                     else:
                         break
             
+            await self.enrich_with_stock(context)
             await browser.close()
             return self.results
+
+    async def enrich_with_stock(self, context):
+        print("Enriching items with stock data via ML API...")
+        item_ids = [r["id"] for r in self.results if r.get("id") and r["id"] != "N/A" and "MLA" in r["id"]]
+        
+        id_to_results = {}
+        unique_clean_ids = set()
+        for r in self.results:
+            if r.get("id") and r["id"] != "N/A" and "MLA" in r["id"]:
+                clean_id = r["id"].replace("-", "")
+                unique_clean_ids.add(clean_id)
+                if clean_id not in id_to_results:
+                    id_to_results[clean_id] = []
+                id_to_results[clean_id].append(r)
+        
+        batch_size = 20
+        unique_list = list(unique_clean_ids)
+        
+        for i in range(0, len(unique_list), batch_size):
+            batch = unique_list[i:i+batch_size]
+            if not batch: continue
+            
+            url = f"https://api.mercadolibre.com/items?ids={','.join(batch)}"
+            try:
+                # Provide auth header if available to prevent 401/403 errors
+                from dotenv import load_dotenv
+                load_dotenv()
+                token = os.environ.get("MELI_ACCESS_TOKEN")
+                headers = {"Authorization": f"Bearer {token}"} if token else {}
+                
+                response = await context.request.get(url, headers=headers)
+                if response.ok:
+                    data = await response.json()
+                    for item in data:
+                        if item.get("code") == 200:
+                            body = item.get("body", {})
+                            item_id = body.get("id")
+                            stock = body.get("available_quantity", 0)
+                            
+                            # If the product has variations, its true stock is always the sum of all variations.
+                            variations = body.get("variations", [])
+                            if variations:
+                                stock = sum(v.get("available_quantity", 0) for v in variations)
+                                
+                            if item_id in id_to_results:
+                                for res in id_to_results[item_id]:
+                                    res["available_quantity"] = stock
+                else:
+                    if not token:
+                        print(f"Warning: ML API blocked stock retrieval ({response.status}) because MELI_ACCESS_TOKEN is not set.")
+            except Exception as e:
+                print(f"Error fetching stock: {e}")
+                
+        for r in self.results:
+            if "available_quantity" not in r:
+                r["available_quantity"] = 0
+
 
     def save_results(self, filename="c:/Users/Martyniuk-Ntbk-Gmr/AppData/Local/Temp/raw_products.json"):
         os.makedirs(os.path.dirname(filename), exist_ok=True)

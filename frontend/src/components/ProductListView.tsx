@@ -134,7 +134,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading }) 
             ) : (
                 <div className="space-y-3">
                     {/* Table Header */}
-                    <div className="hidden md:grid grid-cols-[80px_1fr_150px_200px_120px_100px_100px_120px] gap-4 px-4 py-2 text-[10px] uppercase tracking-wider font-black text-slate-500">
+                    <div className="hidden md:grid grid-cols-[80px_1fr_150px_200px_120px_100px_80px_100px_120px] gap-4 px-4 py-2 text-[10px] uppercase tracking-wider font-black text-slate-500">
                         <div></div>
                         <div>Product</div>
                         <div
@@ -156,6 +156,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading }) 
                         >
                             Match {sortBy === 'match_level' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
                         </div>
+                        <div>Stock</div>
                         <div
                             className="cursor-pointer hover:text-brand-400 transition-colors flex items-center gap-1"
                             onClick={() => toggleSort('fraud_score')}
@@ -170,7 +171,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading }) 
                         <div
                             key={product.id}
                             onClick={() => setSelectedProduct(product)}
-                            className="grid grid-cols-1 md:grid-cols-[80px_1fr_150px_200px_120px_100px_100px_120px] gap-4 items-center p-4 bg-slate-900/40 hover:bg-slate-900/60 border border-white/5 hover:border-brand-500/30 rounded-2xl cursor-pointer transition-all group"
+                            className="grid grid-cols-1 md:grid-cols-[80px_1fr_150px_200px_120px_100px_80px_100px_120px] gap-4 items-center p-4 bg-slate-900/40 hover:bg-slate-900/60 border border-white/5 hover:border-brand-500/30 rounded-2xl cursor-pointer transition-all group"
                         >
                             {/* Thumbnail */}
                             <div className="hidden md:block">
@@ -209,6 +210,14 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading }) 
                             {/* Match Level */}
                             <div>
                                 {getMatchBadge(product.match_level)}
+                            </div>
+
+                            {/* Stock */}
+                            <div className="flex flex-col">
+                                <span className="text-[10px] uppercase font-bold text-slate-500 mb-1 md:hidden">Stock</span>
+                                <span className={`text-sm font-bold ${product.available_stock ? 'text-white' : 'text-slate-600'}`}>
+                                    {product.available_stock ?? 'N/A'}
+                                </span>
                             </div>
 
                             {/* Fraud Score */}
