@@ -54,7 +54,8 @@ async def run_pipeline():
                 "is_official_store": l.get("is_official_store", False),
                 "official_store_id": l.get("official_store_id"),
                 "seller_reputation": l.get("seller_reputation", {}),
-                "attributes": l.get("attributes", {})
+                "attributes": l.get("attributes", {}),
+                "available_quantity": l.get("available_quantity", 0)
             }
     
     listings_to_sync = list(unique_listings.values())

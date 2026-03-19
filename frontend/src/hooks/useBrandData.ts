@@ -189,7 +189,8 @@ export const useBrandData = () => {
                     status: a.status || 'PENDING',
                     fields: parseFieldStatus(a, a.meli_listings, a.master_products),
                     master_product: a.master_products,
-                    violation_details: a.violation_details
+                    violation_details: a.violation_details,
+                    available_stock: a.meli_listings?.available_quantity
                 }));
                 setProducts(fetchedProducts);
             }
