@@ -137,9 +137,12 @@ class MeliAPIScraper:
                     print(f"Extracted {len(page_results)} items for {query}")
                     
                     for r in page_results:
-                        # Extract MLA ID from URL
+                        # Extract MLA ID from URL - Prioritize 'wid' (Listing ID) over Product ID
                         meli_id = "N/A"
-                        if "MLA" in r["url"]:
+                        wid_match = re.search(r'wid=MLA(\d+)', r["url"])
+                        if wid_match:
+                            meli_id = f"MLA{wid_match.group(1)}"
+                        else:
                             match = re.search(r'MLA-?(\d+)', r["url"])
                             if match:
                                 meli_id = f"MLA{match.group(1)}"
@@ -227,8 +230,10 @@ class MeliAPIScraper:
                                 for res in id_to_results[item_id]:
                                     res["available_quantity"] = stock
                 else:
-                    if not token:
-                        print(f"Warning: ML API blocked stock retrieval ({response.status}) because MELI_ACCESS_TOKEN is not set.")
+                    error_body = await response.text()
+                    print(f"Error: ML API rejected stock retrieval. Status: {response.status}, Token present: {bool(token)}")
+                    if response.status in [401, 403]:
+                        print(f"Details: {error_body}")
             except Exception as e:
                 print(f"Error fetching stock: {e}")
                 

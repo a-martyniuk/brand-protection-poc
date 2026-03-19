@@ -201,10 +201,13 @@ class MeliScraper:
                             price_val = float(p["price_str"].replace(".", "").replace(",", "."))
                             
                             meli_id = "N/A"
-                            if link and "MLA" in link:
+                            wid_match = re.search(r'wid=MLA(\d+)', link)
+                            if wid_match:
+                                meli_id = f"MLA{wid_match.group(1)}"
+                            else:
                                 match = re.search(r'MLA-?(\d+)', link)
                                 if match:
-                                    meli_id = f"MLA-{match.group(1)}"
+                                    meli_id = f"MLA{match.group(1)}"
 
                             self.results.append({
                                 "id": meli_id,
