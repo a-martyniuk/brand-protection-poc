@@ -189,8 +189,8 @@ export const useBrandData = () => {
                     status: a.status || 'PENDING',
                     fields: parseFieldStatus(a, a.meli_listings, a.master_products),
                     master_product: a.master_products,
-                    violation_details: a.violation_details,
-                    available_stock: a.meli_listings?.available_quantity
+                    available_stock: a.meli_listings?.available_quantity,
+                    item_status: a.meli_listings?.item_status || 'active'
                 }));
                 setProducts(fetchedProducts);
             }
@@ -222,5 +222,44 @@ export const useBrandData = () => {
         return () => clearInterval(interval);
     }, [fetchData, fetchEnrichmentStats]);
 
-    return { products, stats, enrichmentStats, loading, fetchData, runPipeline, refreshScores };
+    const discardProduct = async (meliId: string) => {
+        try {
+            // Update Supabase
+            const { error } = await supabase
+                .from('meli_listings')
+                .update({ item_status: 'noise_manual' })
+                .eq('meli_id', meliId);
+
+            if (error) throw error;
+
+            // Update local state immediately for snappy UI
+            setProducts(prev => prev.filter(p => p.meli_id !== meliId));
+            
+            // Re-fetch stats to be accurate
+            fetchEnrichmentStats();
+        } catch (err) {
+            console.error('Error discarding product:', err);
+            alert('Failed to discard product');
+        }
+    };
+
+    const restoreProduct = async (meliId: string) => {
+        try {
+            // Update Supabase
+            const { error } = await supabase
+                .from('meli_listings')
+                .update({ item_status: 'active' })
+                .eq('meli_id', meliId);
+
+            if (error) throw error;
+
+            // Re-fetch data to refresh everything properly
+            fetchData();
+        } catch (err) {
+            console.error('Error restoring product:', err);
+            alert('Failed to restore product');
+        }
+    };
+
+    return { products, stats, enrichmentStats, loading, fetchData, runPipeline, refreshScores, discardProduct, restoreProduct };
 };

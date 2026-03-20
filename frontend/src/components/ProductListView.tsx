@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+import { ChevronDown, ChevronUp, ExternalLink, Trash2, RotateCcw } from 'lucide-react';
 import { ProductAudit, RiskFilter, MatchFilter } from '../types';
 import ProductDetailPanel from './ProductDetailPanel';
 
 interface ProductListViewProps {
     products: ProductAudit[];
     loading: boolean;
+    onDiscard?: (meliId: string) => void;
+    onRestore?: (meliId: string) => void;
+    viewMode?: 'ACTIVE' | 'NOISE';
 }
 
-const ProductListView: React.FC<ProductListViewProps> = ({ products, loading }) => {
+const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, onDiscard, onRestore, viewMode = 'ACTIVE' }) => {
     const [selectedProduct, setSelectedProduct] = useState<ProductAudit | null>(null);
     const [riskFilter, setRiskFilter] = useState<RiskFilter>('ALL');
     const [matchFilter, setMatchFilter] = useState<MatchFilter>('ALL');
@@ -232,10 +235,41 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading }) 
                             </div>
 
                             {/* Risk Level */}
-                            <div className="flex items-center justify-between">
-                                {getRiskBadge(product.risk_level)}
-                                <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-brand-400 transition-colors" />
-                            </div>
+                             <div className="flex items-center justify-end gap-3 px-2">
+                                 {getRiskBadge(product.risk_level)}
+                                 <div className="flex items-center gap-2">
+                                     {viewMode === 'NOISE' ? (
+                                         <button
+                                             onClick={(e) => {
+                                                 e.stopPropagation();
+                                                 if (onRestore) onRestore(product.meli_id);
+                                             }}
+                                             title="Restaurar a Audit"
+                                             className="p-2 hover:bg-emerald-500/20 text-slate-500 hover:text-emerald-400 rounded-lg transition-colors"
+                                         >
+                                             <RotateCcw className="w-4 h-4" />
+                                         </button>
+                                     ) : (
+                                         <button
+                                             onClick={(e) => {
+                                                 e.stopPropagation();
+                                                 if (onDiscard) onDiscard(product.meli_id);
+                                             }}
+                                             title="Descartar (Noise)"
+                                             className="p-2 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-lg transition-colors"
+                                         >
+                                             <Trash2 className="w-4 h-4" />
+                                         </button>
+                                     )}
+                                     <ExternalLink
+                                         onClick={(e) => {
+                                             e.stopPropagation();
+                                             window.open(product.url, '_blank');
+                                         }}
+                                         className="w-4 h-4 text-slate-500 hover:text-brand-400 transition-colors cursor-pointer"
+                                     />
+                                 </div>
+                             </div>
                         </div>
                     ))}
                 </div>

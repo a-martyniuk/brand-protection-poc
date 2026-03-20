@@ -31,7 +31,6 @@ async def refresh_audit():
         # identify_product expects the listing structure from the scraper
         # which is largely what's in the DB, but we ensure 'attributes' is handled
         audit = engine.identify_product(l)
-        
         audit_records.append({
             "listing_id": l["id"],
             "master_product_id": audit["master_product_id"],
@@ -43,6 +42,11 @@ async def refresh_audit():
             "risk_level": engine.get_risk_level(audit["fraud_score"]),
             "violation_details": audit["violation_details"]
         })
+
+        # Sync item_status to meli_listings if it's noise
+        status = audit.get("violation_details", {}).get("item_status")
+        if status == "noise":
+            db.supabase.table("meli_listings").update({"item_status": "noise"}).eq("id", l["id"]).execute()
     
     # 3. Batch Update Audit Table
     if audit_records:

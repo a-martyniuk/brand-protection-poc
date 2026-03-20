@@ -392,7 +392,7 @@ class IdentificationEngine:
             "gabapentina", "cd ", "libro", "manual", "historia de", "caracterización"
         ]
         if any(kw in title_lower for kw in exclusion_keywords):
-            return 0, 0, None # Hard rejection for noise
+            return 0, 0, {"reason": "exclusion_keyword", "item_status": "noise"}
             
         # 0.1 Category-Based Rejection (Aggressive)
         noise_categories = [
@@ -406,7 +406,7 @@ class IdentificationEngine:
         if any(nc.lower() in l_cat.lower() for nc in noise_categories):
             # Special bypass for Nutricia-like items in health categories
             if not any(b in title_lower for b in ["nutrilon", "vital", "neocate", "fortisip", "fortini"]):
-                return 0, 0, None
+                return 0, 0, {"reason": "noise_category", "item_status": "noise"}
 
         # 1. Brand Match (Critical)
         l_brand = (listing_attrs.get("brand") or listing_attrs.get("marca") or "").lower()

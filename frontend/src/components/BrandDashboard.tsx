@@ -7,8 +7,8 @@ import ProductListView from './ProductListView';
 import AnalyticsView from './AnalyticsView';
 
 const BrandDashboard: React.FC = () => {
-    const { products, stats, enrichmentStats, loading, fetchData, runPipeline, refreshScores } = useBrandData();
-    const [activeTab, setActiveTab] = useState<'products' | 'analytics'>('products');
+    const { products, stats, enrichmentStats, loading, fetchData, runPipeline, refreshScores, discardProduct, restoreProduct } = useBrandData();
+    const [activeTab, setActiveTab] = useState<'products' | 'analytics' | 'noise'>('products');
 
     const handleExport = () => {
         const legacyFormat = products.map(p => ({
@@ -113,6 +113,15 @@ const BrandDashboard: React.FC = () => {
                         >
                             Analytics
                         </button>
+                        <button
+                            onClick={() => setActiveTab('noise')}
+                            className={`px-5 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-300 ${activeTab === 'noise'
+                                ? 'bg-slate-700 text-white'
+                                : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                                }`}
+                        >
+                            Noise
+                        </button>
                     </div>
                 </header>
 
@@ -168,10 +177,22 @@ const BrandDashboard: React.FC = () => {
                                 <div className="p-2 bg-brand-500/10 rounded-lg">
                                     <Shield className="w-5 h-5 text-brand-500" />
                                 </div>
-                                <h2 className="text-xl font-black text-white tracking-tight">Product Compliance Audit</h2>
+                                <h2 className="text-xl font-black text-white tracking-tight">
+                                    {activeTab === 'noise' ? 'Noise & Discarded Items' : 'Product Compliance Audit'}
+                                </h2>
                             </div>
 
-                            <ProductListView products={products} loading={loading} />
+                            <ProductListView 
+                                products={
+                                    activeTab === 'noise' 
+                                        ? products.filter(p => p.item_status === 'noise' || p.item_status === 'noise_manual')
+                                        : products.filter(p => p.item_status !== 'noise' && p.item_status !== 'noise_manual')
+                                } 
+                                loading={loading} 
+                                onDiscard={discardProduct}
+                                onRestore={restoreProduct}
+                                viewMode={activeTab === 'noise' ? 'NOISE' : 'ACTIVE'}
+                            />
                         </div>
                     </>
                 )}

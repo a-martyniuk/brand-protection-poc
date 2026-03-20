@@ -6,6 +6,7 @@ from datetime import datetime
 
 # Add project root to sys.path
 sys.path.append(os.getcwd())
+print(f"DEBUG FILE LOCATION: {os.path.abspath(__file__)}")
 
 from playwright.async_api import async_playwright
 from logic.supabase_handler import SupabaseHandler
@@ -67,10 +68,8 @@ class ProductEnricher:
     async def enrich_products(self, limit=None):
         """
         Enrich products missing EAN or detailed specs.
-        
-        Args:
-            limit: Maximum number of products to enrich (None = all)
         """
+        print("\n🚀 ENRICHER VERSION: 2.1 (Intelligence + API Metadata Fix)")
         # Get products needing enrichment
         products = self.get_products_to_enrich(limit)
         
@@ -98,11 +97,12 @@ class ProductEnricher:
         async with async_playwright() as p:
             print(f"Launching persistent context in {user_data_dir} (HEADED for login)...")
             context = await p.chromium.launch_persistent_context(
-                user_data_dir,
-                channel="chrome",
-                headless=False, # Show it so user can login if needed
-                viewport={"width": 1280, "height": 800},
-                args=["--disable-blink-features=AutomationControlled", "--no-sandbox"]
+                user_data_dir=user_data_dir,
+                headless=False,
+                viewport={'width': 1280, 'height': 720},
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                ignore_default_args=["--enable-automation"],
+                args=["--disable-blink-features=AutomationControlled"]
             )
             semaphore = asyncio.Semaphore(1) # STRICT SERIAL PROCESSING for stability
             
@@ -126,6 +126,9 @@ class ProductEnricher:
                         
                         # Scrape detail page
                         details = await self.scrape_product_details(page_for_task, url)
+                        if details and "metadata" in details:
+                            m = details['metadata']
+                            print(f"    [DEBUG] Seller: {m.get('seller_name')} | ID: {m.get('seller_id')} | Sold: {m.get('sold_quantity')}")
                         
                         # Update database and log
                         if details and (details.get('ean') or details.get('specs') or details.get('available_quantity') is not None):
@@ -205,8 +208,10 @@ class ProductEnricher:
                 if limit and current_end >= limit:
                     current_end = limit - 1
                 
-                query = self.db.supabase.table("meli_listings").select("*, compliance_audit!inner(*)").or_(
-                    "ean_published.is.null,brand_detected.is.null"
+                query = self.db.supabase.table("meli_listings").select("*").not_.in_(
+                    "item_status", ["noise", "noise_manual"]
+                ).order(
+                    "last_enriched_at", desc=False, nullsfirst=True
                 ).range(start, current_end)
                 
                 response = query.execute()
@@ -239,191 +244,186 @@ class ProductEnricher:
             mla_match = re.search(r'MLA-?(\d+)', url)
             if mla_match:
                 mla_id = mla_match.group(1)
-                return f"https://www.mercadolibre.com.ar/p/MLA{mla_id}"
+                return f"https://articulo.mercadolibre.com.ar/MLA-{mla_id}"
             return None # Skip if no ID found
         
-        # Remove tracking parameters from normal URLs
-        if '?' in url:
-            base_url = url.split('?')[0]
-            return base_url
+        # Normalize any MLA URL to articulo version for better resilience
+        mla_match = re.search(r'MLA-?(\d+)', url)
+        if mla_match:
+            mla_id = mla_match.group(1)
+            return f"https://articulo.mercadolibre.com.ar/MLA-{mla_id}"
             
         return url
     
     async def scrape_product_details(self, page, url):
         """
         Scrape product detail page for EAN and specifications.
-        
-        Args:
-            page: Playwright page object
-            url: Product URL
-            
-        Returns:
-            dict with 'ean', 'specs', 'available_quantity', etc.
         """
+        # Initialize default structure
+        details = {
+            "ean": None,
+            "specs": {},
+            "available_quantity": None,
+            "metadata": {
+                "seller_name": "Unknown",
+                "seller_id": None,
+                "sold_quantity": 0,
+                "condition": "new",
+                "is_official_store": False
+            },
+            "description": ""
+        }
+        
         try:
-            # Clean URL first
             clean_url = self.clean_url(url)
             if not clean_url:
                 return None
                 
             await page.goto(clean_url, wait_until="domcontentloaded", timeout=30000)
             
-            # --- Detection of Login/Bot Walls ---
-            if "account-verification" in page.url or "negative_traffic" in page.url:
-                print("\n" + "!"*80)
-                print("🛑 BLOQUEO DETECTADO: MercadoLibre pide verificación humana.")
-                print(f"URL Actual: {page.url}")
-                print("👉 Por favor, ve a la ventana de Chrome y completa el login o captcha.")
-                print("👉 Una vez que veas el producto cargado, presiona ENTER aquí para seguir...")
-                print("!"*80 + "\n")
-                # Use run_in_executor to not block the event loop
+            # Bot/Login Wall Detection
+            if any(p in page.url for p in ["account-verification", "negative_traffic", "login", "auth"]):
+                print("\n" + "!"*80 + "\n🛑 BLOQUEO/LOGIN: Completa el login/captcha en Chrome y presiona ENTER...")
                 await asyncio.get_event_loop().run_in_executor(None, input, "Presiona ENTER para reanudar...")
-                # Try to go to the URL again now that we are "clean"
                 return await self.scrape_product_details(page, url)
 
-            # Wait for specs table or error indicators
+            # Wait for content
             try:
-                # ui-pdp-message is used for 'Item not available' or 'Restricted'
-                winner = await page.wait_for_selector('.andes-table__row, .ui-pdp-specs__table__row, .ui-pdp-message', timeout=30000)
-                
-                # Check if it was an error message
+                winner = await page.wait_for_selector('.andes-table__row, .ui-pdp-specs__table__row, .ui-pdp-buybox__quantity__available, .ui-pdp-message', timeout=15000)
                 class_handle = await winner.get_property('className')
-                class_str = await class_handle.json_value()
+                class_str = str(await class_handle.json_value())
                 if 'ui-pdp-message' in class_str:
                     msg_text = await winner.inner_text()
-                    print(f"    ⚠ Item Unavailable: {msg_text.strip()[:50]}")
-                    return {"ean": None, "specs": {"_item_status": "unavailable"}, "description": msg_text}
-            except Exception as wait_err:
-                # If nothing found, it might be a login challenge or blank page
-                print(f"    ⚠ Timeout/Unknown state for {url}")
-                return None
+                    details["specs"]["_item_status"] = "unavailable"
+                    details["description"] = msg_text
+                    # Still try API fallback even if unavailable in DOM
+            except:
+                print(f"    ⚠ Timeout/Partial load for {url}")
+                # Continue to API fallback
             
-            # Extract EAN, specs and description from DOM and State
-            details = await page.evaluate(r"""
+            # Extract from DOM
+            dom_data = await page.evaluate(r"""
                 () => {
+                    const state = window.__PRELOADED_STATE__?.initialState;
                     const rows = document.querySelectorAll('.andes-table__row, .ui-pdp-specs__table__row');
-                    let ean = null;
                     let specs = {};
+                    let ean = null;
                     
-                    // 1. Extract All Specs
                     for (const row of rows) {
-                        const labelEl = row.querySelector('.andes-table__column--label, th');
-                        const valueEl = row.querySelector('.andes-table__column--value, td');
-                        
-                        if (labelEl && valueEl) {
-                            const label = labelEl.innerText.trim();
-                            const value = valueEl.innerText.trim();
-                            const labelLower = label.toLowerCase();
-                            
-                            specs[label] = value;
-                            
-                            if (labelLower.includes('ean') || labelLower.includes('gtin') || labelLower.includes('código universal')) {
-                                ean = value.replace(/\D/g, '');
-                            }
-                            if (labelLower.includes('unidades por pack') || labelLower.includes('unidades por envase') || labelLower.includes('cantidad de unidades')) {
-                                specs.units_per_pack = value;
-                            }
-                            if (labelLower.includes('tipo de leche') || labelLower.includes('tipo de suplemento') || labelLower.includes('sustancia') || labelLower.includes('tipo de producto')) {
-                                specs.substance = value;
-                            }
-                            if (labelLower.includes('peso neto') || labelLower.includes('contenido neto') || labelLower.includes('volumen')) {
-                                specs.net_content = value;
-                            }
-                            if (labelLower.includes('etapa') || labelLower.includes('edad mínima') || labelLower.includes('edad recomendada')) {
-                                specs.stage = value;
+                        const l = row.querySelector('.andes-table__column--label, th')?.innerText.trim();
+                        const v = row.querySelector('.andes-table__column--value, td')?.innerText.trim();
+                        if (l && v) {
+                            specs[l] = v;
+                            const lowL = l.toLowerCase();
+                            if (lowL.includes('ean') || lowL.includes('código universal') || lowL.includes('gtin')) {
+                                ean = v.replace(/\D/g, '');
                             }
                         }
                     }
 
-                    // 2. Available Quantity (Stock) & Metadata
-                    let stock = null;
-                    let metadata = {};
-                    try {
-                        const state = window.__PRELOADED_STATE__?.initialState;
-                        const item = state?.item;
-                        const components = state?.components;
-
-                        // Stock Extraction (Multi-priority)
-                        if (item?.data) stock = item.data.available_quantity;
-                        if (stock === null && components?.buybox?.quantity) stock = components.buybox.quantity.available;
-                        if (stock === null) {
-                            const stockEl = document.querySelector('.ui-pdp-buybox__quantity__available');
-                            if (stockEl) {
-                                const match = stockEl.innerText.match(/(\d+)/);
+                        const stockSelectors = ['.ui-pdp-buybox__quantity', '.ui-pdp-stock-info', '.ui-pdp-message', '.ui-pdp-promotions-pill-label'];
+                        let stockText = "";
+                        for (const sel of stockSelectors) {
+                            const el = document.querySelector(sel);
+                            if (el && el.innerText) {
+                                stockText += " " + el.innerText.replace(/\n/g, ' ');
+                            }
+                        }
+                        
+                        let stock = state?.item?.data?.available_quantity || state?.components?.buybox?.quantity?.available || null;
+                        
+                        if (!stock && stockText) {
+                            const normalized = stockText.toLowerCase();
+                            // 1. Try to find "X disponibles" or "X unidades" explicitly
+                            const availMatch = normalized.match(/(\d+)\s+(disponible|unidade)/);
+                            if (availMatch) {
+                                stock = parseInt(availMatch[1]);
+                            } 
+                            // 2. Handle "Última disponible" or "Único disponible"
+                            else if (/[uú]ltim[ao]|[uú]nic[ao]/i.test(normalized)) {
+                                stock = 1;
+                            }
+                            // 3. Last fallback: any number found in the text
+                            else {
+                                const match = normalized.match(/(\d+)/);
                                 if (match) stock = parseInt(match[1]);
                             }
                         }
 
-                        // Advanced Metadata for Brand Protection
-                        metadata = {
-                            seller_name: components?.seller?.nickname || null,
-                            seller_id: components?.seller?.id || null,
-                            seller_reputation: components?.reputation?.level_id || components?.seller?.reputation?.level_id || null,
-                            is_official_store: !!components?.seller?.official_store_id,
-                            sold_quantity: item?.sold_quantity || 0,
-                            condition: item?.condition || null,
-                            main_image: item?.pictures?.[0]?.url || null,
-                            health: item?.health || null
-                        };
-                    } catch (e) {}
+                        let raw_seller = state?.components?.seller?.nickname || 
+                                         document.querySelector('.ui-pdp-seller__link-container')?.innerText || 
+                                         document.querySelector('.ui-pdp-official-store-link')?.innerText || 
+                                         document.querySelector('.ui-pdp-seller__header__title')?.innerText ||
+                                         document.querySelector('.ui-pdp-action-modal--seller .ui-pdp-button--link')?.innerText ||
+                                         document.body.innerText.match(/(Vendido|Ofrecido) por\s+([^\n]+)/i)?.[2] || 
+                                         document.body.innerText.match(/Tienda oficial\s+([^\n]+)/i)?.[1] || 
+                                         null;
 
-                    return {
-                        ean: ean,
-                        specs: specs,
-                        available_quantity: stock,
-                        metadata: metadata,
-                        description: document.querySelector('.ui-pdp-description__content')?.innerText || ""
-                    };
-                }
-            """)
+                        const itemStatus = state?.item?.status || "active";
+                        const unavailableMsg = document.querySelector('.ui-pdp-message')?.innerText || "";
+                        
+                        return {
+                            ean: ean,
+                            specs: specs,
+                            stock: stock,
+                            item_status: itemStatus,
+                            status_description: unavailableMsg,
+                            metadata: {
+                                seller_name: raw_seller ? raw_seller.replace(/^(Vendido|Ofrecido) por\s*|Tienda oficial\s*/gi, '').replace(/\n/g, ' ').trim() : null,
+                                seller_id: state?.components?.seller?.id || null,
+                                sold_quantity: state?.item?.sold_quantity || state?.components?.header?.sold_quantity || 0,
+                                condition: state?.item?.condition || null,
+                                is_official_store: !!state?.components?.seller?.official_store_id
+                            },
+                            description: document.querySelector('.ui-pdp-description__content')?.innerText || ""
+                        };
+                    }
+                """)
             
-            # --- API FALLBACK FOR STOCK ---
+            if dom_data:
+                if dom_data.get('ean'): details['ean'] = dom_data['ean']
+                if dom_data.get('specs'): details['specs'].update(dom_data['specs'])
+                if dom_data.get('stock') is not None: details['available_quantity'] = dom_data['stock']
+                if dom_data.get('metadata'): details['metadata'].update(dom_data['metadata'])
+                if dom_data.get('description'): details['description'] = dom_data['description']
+
+            # --- API FALLBACK (Crucial for Brand Protection) ---
             meli_id = None
             mla_match = re.search(r'MLA-?(\d+)', url)
-            if mla_match:
-                meli_id = f"MLA{mla_match.group(1)}"
+            if mla_match: meli_id = f"MLA{mla_match.group(1)}"
             
             if meli_id:
+                api_url = f"https://api.mercadolibre.com/items/{meli_id}"
                 try:
-                    # Use page.request to stay within the same session context
-                    api_url = f"https://api.mercadolibre.com/items/{meli_id}"
+                    # Clean Python requests (bypasses browser fingerprinting/blocks)
+                    headers = {"Authorization": f"Bearer {self.access_token}"} if self.access_token else {}
                     
-                    async def fetch_stock(use_token=True):
-                        headers = {}
-                        if use_token and self.access_token:
-                            headers["Authorization"] = f"Bearer {self.access_token}"
-                        return await page.request.get(api_url, headers=headers)
-
-                    response = await fetch_stock(use_token=True)
+                    # Try with token
+                    resp = requests.get(api_url, headers=headers, timeout=10)
                     
-                    if response.status == 401 and self.access_token:
-                        print(f"    Notice: Token expired/invalid for {meli_id}, trying public API...")
-                        response = await fetch_stock(use_token=False)
-
-                    if response.ok:
-                        data = await response.json()
-                        details['available_quantity'] = self._parse_stock_from_data(data, details)
-                    
-                    if (details.get('available_quantity') is None or details.get('available_quantity') == 0):
-                        # Final Attempt: Clean Python requests (bypasses browser fingerprinting)
-                        print(f"    Notice: Browser API failed ({response.status}), trying clean Python request...")
-                        try:
-                            resp = requests.get(api_url, timeout=10)
-                            if resp.ok:
-                                details['available_quantity'] = self._parse_stock_from_data(resp.json(), details)
-                        except: pass
+                    # Fallback to public if failed/unauthorized
+                    if not resp.ok:
+                        resp = requests.get(api_url, timeout=10)
                         
+                    if resp.ok:
+                        api_data = resp.json()
+                        details['available_quantity'] = self._parse_stock_from_data(api_data, details)
+                    else:
+                        print(f"    ⚠ API fallback failed for {meli_id} (Status: {resp.status_code})")
                 except Exception as api_err:
-                    print(f"    Warning: API stock fetch failed for {meli_id}: {api_err}")
+                    print(f"    Warning: API fallback error: {api_err}")
             
             return details
             
         except Exception as e:
-            print(f"    Error scraping {url}: {e}")
-            return None
+            print(f"    Error in scrape_product_details: {e}")
+            return details # Return what we have
 
     def _parse_stock_from_data(self, data, details):
         """Helper to parse available_quantity and metadata from API response."""
+        if not data:
+            return 0
+            
         total_stock = data.get("available_quantity", 0)
         variations = data.get("variations", [])
         
@@ -441,9 +441,10 @@ class ProductEnricher:
             
         # Extract Metadata for Brand Protection from API response
         # Note: API response structure is slightly different from DOM State
+        s_id = data.get('seller_id')
         details['metadata'] = {
-            'seller_id': data.get('seller_id'),
-            'seller_name': f"ID: {data.get('seller_id')}", # Nickname usually requires /users call
+            'seller_id': s_id,
+            'seller_name': f"ID: {s_id}" if s_id else "API_UNKNOWN", # Nickname usually requires /users call
             'is_official_store': data.get('official_store_id') is not None and data.get('official_store_id') > 0,
             'sold_quantity': data.get('sold_quantity', 0),
             'condition': data.get('condition', 'new'),
@@ -482,6 +483,26 @@ class ProductEnricher:
             
             if details.get('available_quantity') is not None:
                 update_data['available_quantity'] = details['available_quantity']
+            
+            if details.get('item_status'):
+                update_data['item_status'] = details['item_status']
+            if details.get('status_description'):
+                update_data['status_description'] = details['status_description']
+            
+            # Sync metadata to top-level columns for frontend visibility
+            meta = details.get('metadata', {})
+            if meta.get('seller_name'):
+                update_data['seller_name'] = meta['seller_name']
+            if meta.get('seller_id'):
+                update_data['seller_id'] = str(meta['seller_id'])
+            if meta.get('is_official_store') is not None:
+                update_data['is_official_store'] = meta['is_official_store']
+            if meta.get('sold_quantity') is not None:
+                update_data['sold_quantity'] = meta['sold_quantity']
+            if meta.get('condition'):
+                update_data['condition'] = meta['condition']
+            
+            update_data['last_enriched_at'] = datetime.now().isoformat()
                 
             # Update attributes with all specs, description, variations, and advanced metadata
             if details.get('specs') or details.get('description') or details.get('variations_data') or details.get('metadata'):
