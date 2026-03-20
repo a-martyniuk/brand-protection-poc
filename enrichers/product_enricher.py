@@ -132,7 +132,19 @@ class ProductEnricher:
                             self.update_product(product['id'], details)
                             ean = details.get('ean', 'N/A')
                             stock = details.get('available_quantity', 0)
-                            print(f"  ✓ {meli_id} - EAN: {ean} | Stock: {stock}")
+                            
+                            # Enhanced console output for Brand Protection
+                            meta = details.get('metadata', {})
+                            seller = meta.get('seller_name', 'Unknown')
+                            if meta.get('is_official_store'):
+                                seller += " [OFFICIAL]"
+                            sold = meta.get('sold_quantity', 0)
+                            cond = meta.get('condition', 'new')
+                            
+                            # Try to get price from variations or metadata if we start capturing it
+                            price = meta.get('price') or "N/A"
+                            
+                            print(f"  ✓ {meli_id} - EAN: {ean} | Stock: {stock} | Seller: {seller} | Sold: {sold} | Cond: {cond}")
                             self.log_product(meli_id, url, "enriched", ean=ean, stock=stock)
                             self.progress["enriched"] += 1
                         else:
@@ -436,6 +448,9 @@ class ProductEnricher:
             product_id: UUID of product in database
             details: dict with 'ean' and 'specs' keys
         """
+        if not details:
+            return
+            
         try:
             update_data = {}
             
