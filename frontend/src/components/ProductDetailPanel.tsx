@@ -52,9 +52,16 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({ product, onClos
                         <div className="flex items-center gap-3 flex-wrap">
                             {getMatchLevelBadge()}
                             {getRiskBadge()}
-                            <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-700/50 text-slate-300">
-                                Stock: {product.available_stock ?? 'N/A'}
-                            </span>
+                            <div className="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-700/50 text-slate-300">
+                                <span>Stock: {product.available_stock ?? '0'}</span>
+                                <span className="w-1 h-1 rounded-full bg-slate-500"></span>
+                                <span className={`text-[10px] ${
+                                    !product.item_status || product.item_status === 'active' ? 'text-emerald-400' : 
+                                    product.item_status === 'paused' ? 'text-amber-400' : 'text-red-400'
+                                }`}>
+                                    {product.item_status || 'active'}
+                                </span>
+                            </div>
                             <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-700/50 text-slate-300">
                                 Score: {product.fraud_score}/100
                             </span>

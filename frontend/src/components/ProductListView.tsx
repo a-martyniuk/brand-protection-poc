@@ -71,6 +71,13 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
         );
     };
 
+    const getStatusBadge = (status?: string) => {
+        if (!status || status === 'active') return <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-tighter">● Active</span>;
+        if (status === 'paused') return <span className="text-[10px] text-amber-500 font-bold uppercase tracking-tighter">● Paused</span>;
+        if (status === 'closed') return <span className="text-[10px] text-red-500 font-bold uppercase tracking-tighter">● Closed</span>;
+        return <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">● {status}</span>;
+    };
+
     const toggleSort = (field: 'fraud_score' | 'price' | 'match_level' | 'brand') => {
         if (sortBy === field) {
             setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -218,9 +225,12 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                             {/* Stock */}
                             <div className="flex flex-col">
                                 <span className="text-[10px] uppercase font-bold text-slate-500 mb-1 md:hidden">Stock</span>
-                                <span className={`text-sm font-bold ${product.available_stock ? 'text-white' : 'text-slate-600'}`}>
-                                    {product.available_stock ?? 'N/A'}
-                                </span>
+                                <div className="flex flex-col gap-0.5">
+                                    <span className={`text-sm font-bold ${product.available_stock ? 'text-white' : 'text-slate-600'}`}>
+                                        {product.available_stock ?? 'N/A'}
+                                    </span>
+                                    {getStatusBadge(product.item_status)}
+                                </div>
                             </div>
 
                             {/* Fraud Score */}

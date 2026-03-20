@@ -2,18 +2,28 @@ import sys
 import asyncio
 import os
 import json
+import logging
+from pathlib import Path
 from datetime import datetime
 
-# Add project root to sys.path
-sys.path.append(os.getcwd())
-print(f"DEBUG FILE LOCATION: {os.path.abspath(__file__)}")
-
-from playwright.async_api import async_playwright
-from logic.supabase_handler import SupabaseHandler
+# Add project root to sys.path to find 'logic' package
+project_root = str(Path(__file__).resolve().parent.parent)
+if project_root not in sys.path:
+    sys.path.append(project_root)
 import time
 import random
 import re
 import requests
+from playwright.async_api import async_playwright
+from logic.supabase_handler import SupabaseHandler
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
+logger = logging.getLogger("ProductEnricher")
 
 class ProductEnricher:
     """
@@ -69,7 +79,7 @@ class ProductEnricher:
         """
         Enrich products missing EAN or detailed specs.
         """
-        print("\n🚀 ENRICHER VERSION: 2.1 (Intelligence + API Metadata Fix)")
+        logger.info("🚀 ENRICHER VERSION: 2.2 (Robustness + Logging)")
         # Get products needing enrichment
         products = self.get_products_to_enrich(limit)
         
@@ -83,8 +93,7 @@ class ProductEnricher:
             failed=0
         )
         
-        print(f"🔍 Found {len(products)} products to enrich")
-        print(f"📊 Status tracking: {self.status_file}")
+        logger.info(f"🔍 Found {len(products)} products to enrich")
         
         if not products:
             print("✓ No products need enrichment")
@@ -95,7 +104,7 @@ class ProductEnricher:
         os.makedirs(user_data_dir, exist_ok=True)
         
         async with async_playwright() as p:
-            print(f"Launching persistent context in {user_data_dir} (HEADED for login)...")
+            logger.info(f"Launching persistent context in {user_data_dir}...")
             context = await p.chromium.launch_persistent_context(
                 user_data_dir=user_data_dir,
                 headless=False,
@@ -122,36 +131,40 @@ class ProductEnricher:
                             }
                         )
                         
-                        print(f"[{timestamp}] [{i+1}/{len(products)}] Processing {meli_id}...")
+                        logger.info(f"[{i+1}/{len(products)}] Processing {meli_id}...")
                         
                         # Scrape detail page
                         details = await self.scrape_product_details(page_for_task, url)
-                        if details and "metadata" in details:
-                            m = details['metadata']
-                            print(f"    [DEBUG] Seller: {m.get('seller_name')} | ID: {m.get('seller_id')} | Sold: {m.get('sold_quantity')}")
                         
                         # Update database and log
-                        if details and (details.get('ean') or details.get('specs') or details.get('available_quantity') is not None):
+                        if details and (details.get('ean') or details.get('specs') or details.get('available_quantity') is not None or details.get('item_status')):
                             self.update_product(product['id'], details)
+                            
                             ean = details.get('ean', 'N/A')
                             stock = details.get('available_quantity', 0)
-                            
-                            # Enhanced console output for Brand Protection
                             meta = details.get('metadata', {})
                             seller = meta.get('seller_name', 'Unknown')
                             if meta.get('is_official_store'):
                                 seller += " [OFFICIAL]"
+                            
                             sold = meta.get('sold_quantity', 0)
-                            cond = meta.get('condition', 'new')
+                            status_desc = details.get('status_description', '')
+                            brand = details.get('specs', {}).get('Marca', 'N/A')
+                            category = details.get('metadata', {}).get('category', 'Unknown')
                             
-                            # Try to get price from variations or metadata if we start capturing it
-                            price = meta.get('price') or "N/A"
+                            # High-Visibility Output
+                            item_status = details.get('item_status', 'active')
+                            status_icon = "🟢" if item_status == "active" else "🟡" if item_status == "paused" else "🔴"
+                            print(f"  ├─ Seller: {seller}")
+                            print(f"  ├─ Stock:  {stock} units")
+                            print(f"  ├─ Brand:  {brand} | Category: {category}")
+                            print(f"  ├─ Status: {status_icon} {item_status} ({status_desc if status_desc else 'Publicación activa'})")
+                            print(f"  └─ EAN:    {ean} | Sold: {sold} | Cond: {meta.get('condition', 'new')}")
                             
-                            print(f"  ✓ {meli_id} - EAN: {ean} | Stock: {stock} | Seller: {seller} | Sold: {sold} | Cond: {cond}")
                             self.log_product(meli_id, url, "enriched", ean=ean, stock=stock)
                             self.progress["enriched"] += 1
                         else:
-                            print(f"  ⚠ {meli_id} - No additional data")
+                            print(f"  └─ ⚠ {meli_id} - No extra data found")
                             self.log_product(meli_id, url, "no_data")
                         
                         self.progress["processed"] += 1
@@ -373,7 +386,8 @@ class ProductEnricher:
                                 seller_id: state?.components?.seller?.id || null,
                                 sold_quantity: state?.item?.sold_quantity || state?.components?.header?.sold_quantity || 0,
                                 condition: state?.item?.condition || null,
-                                is_official_store: !!state?.components?.seller?.official_store_id
+                                is_official_store: !!state?.components?.seller?.official_store_id,
+                                category: state?.components?.breadcrumb?.categories?.map(c => c.name).join(' > ') || null
                             },
                             description: document.querySelector('.ui-pdp-description__content')?.innerText || ""
                         };
@@ -386,6 +400,8 @@ class ProductEnricher:
                 if dom_data.get('stock') is not None: details['available_quantity'] = dom_data['stock']
                 if dom_data.get('metadata'): details['metadata'].update(dom_data['metadata'])
                 if dom_data.get('description'): details['description'] = dom_data['description']
+                if dom_data.get('item_status'): details['item_status'] = dom_data['item_status']
+                if dom_data.get('status_description'): details['status_description'] = dom_data['status_description']
 
             # --- API FALLBACK (Crucial for Brand Protection) ---
             meli_id = None
@@ -408,10 +424,8 @@ class ProductEnricher:
                     if resp.ok:
                         api_data = resp.json()
                         details['available_quantity'] = self._parse_stock_from_data(api_data, details)
-                    else:
-                        print(f"    ⚠ API fallback failed for {meli_id} (Status: {resp.status_code})")
-                except Exception as api_err:
-                    print(f"    Warning: API fallback error: {api_err}")
+                except Exception as e:
+                    logger.debug(f"API Fallback failed for {meli_id}: {e}")
             
             return details
             

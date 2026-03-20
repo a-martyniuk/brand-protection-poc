@@ -1,13 +1,22 @@
 import re
+import logging
 from thefuzz import fuzz
 from logic.supabase_handler import SupabaseHandler
+from logic.constants import (
+    NUTRICIA_BRANDS, EXTERNAL_MIMICS, NOISE_CATEGORIES, 
+    EXCLUSION_KEYWORDS, VOLUMETRIC_TOLERANCE, LIQUID_DENSITY_MULTIPLIER
+)
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("IdentificationEngine")
 
 class IdentificationEngine:
     def __init__(self):
         self.db = SupabaseHandler()
         # Cache master products for performance
         self.master_products = self.db.get_master_products()
-        print(f"Identification Engine initialized with {len(self.master_products)} master products.")
+        logger.info(f"Engine initialized with {len(self.master_products)} master products.")
 
     def extract_measures(self, text, substance_hint=None):
         """
@@ -63,7 +72,7 @@ class IdentificationEngine:
             if unit_type == 'g':
                 total_kg = (unit_val * qty) / 1000
             elif unit_type == 'ml':
-                multiplier = 1.085 if "liquid" in substance_hint or "liquido" in substance_hint else 1.0
+                multiplier = LIQUID_DENSITY_MULTIPLIER if "liquid" in substance_hint or "liquido" in substance_hint else 1.0
                 total_kg = ((unit_val * qty) / 1000) * multiplier
                 
         return {"total_kg": total_kg, "qty": qty, "unit_val": unit_val, "unit_type": unit_type}
@@ -125,7 +134,7 @@ class IdentificationEngine:
                 elif unit in ['kg', 'l']:
                     unit_weight = val
                 elif unit == 'ml':
-                    multiplier = 1.085 if "liquid" in m_substance or "liquido" in m_substance else 1.0
+                    multiplier = LIQUID_DENSITY_MULTIPLIER if "liquid" in m_substance or "liquido" in m_substance else 1.0
                     unit_weight = (val / 1000) * multiplier
                 
                 # Smart Fusion: Determine if unit_weight is for 1 unit or the whole pack
@@ -154,296 +163,63 @@ class IdentificationEngine:
         # Scaling master weight by detected quantity for benchmark
         expected_total_kg = m_net * l_qty
         diff = abs(l_total_kg - expected_total_kg)
-        return (diff < (expected_total_kg * 0.15)), l_total_kg, l_qty
+        return (diff < (expected_total_kg * VOLUMETRIC_TOLERANCE)), l_total_kg, l_qty
+
+    def _check_hard_exclusions(self, title_lower, category):
+        """Checks if the product should be rejected immediately based on keywords or category."""
+        # 1. Keyword Exclusion
+        if any(kw in title_lower for kw in EXCLUSION_KEYWORDS):
+            return True, "exclusion_keyword"
+            
+        # 2. Category Exclusion
+        if any(nc.lower() in category.lower() for nc in NOISE_CATEGORIES):
+            # Special bypass for Nutricia-like items in health categories
+            if not any(b in title_lower for b in ["nutrilon", "vital", "neocate", "fortisip", "fortini"]):
+                return True, "noise_category"
+        
+        return False, None
+
+    def _detect_brand(self, title_lower, attr_brand):
+        """Attempts to detect the brand from title or attributes."""
+        l_brand = (attr_brand or "").lower()
+        if not l_brand:
+            for b in NUTRICIA_BRANDS:
+                if b in title_lower:
+                    return b
+        return l_brand
 
     def calculate_attribute_score(self, listing_attrs, master_product):
         """
         Calculates a compatibility score based on structured attributes + FC Validation.
-        Also implements strict rejection for known false positives (e.g., pet food).
         """
         score = 100
         matches = 0
-        
-        # 0. Anti-False Positive Keywords (Hard Rejection)
         title_lower = listing_attrs.get("title", "").lower()
-        exclusion_keywords = [
-            # Pet & Animal (Vitalcan, etc.)
-            "perro", "gato", "mascotas", "vitalcan", "sieger", "dog chow", "cat chow",
-            # Pharmaceuticals (Vitalis, etc.)
-            "vitalis", "acetilcisteina", "cisteina", "farmacia", "medicamento", "laboratorio vitalis",
-            # Biological/Tech Mimics (Hongo, Jebao)
-            "hongo", "seta", "reishi", "melena de leon", "suplemento dietario",
-            "jebao", "acuario", "pecera", "skimmer", "dosificadora", "iluminacion led",
-            # Mobile & Tech Noise (Common overlaps)
-            "funda", "vidrio templado", "celular", "case", "protector de pantalla",
-            # Personal Care & Beauty
-            "shampoo", "acondicionador", "crema", "perfume", "fragancia", "peine", "shampoo vital",
-            # Baby Gear & Toys (Non-Nutricia)
-            "cochecito", "cuna", "butaca", "bouncer", "mecedora", "juguete", "lego", "playmobil", "muñeca",
-            # Automotive & Industrial (Conflicts with MCT Oil / Aceite de Lorenzo)
-            "motor", "auto", "camion", "moto ", "lubricante", "filtro aceite", "shell helix", "castrol", "motul", "motorcraft",
-            # Furniture & Office (Conflicts with GMPro)
-            "escritorio", "mesa", "silla", "mueble", "repisa", "estante", "oficina", "biblioteca", "rack",
-            # Gaming & Tech (Conflicts with GMPro)
-            "gamer", "rgb", "led", "pc", "computadora", "teclado", "mouse", "auriculares", "monitor", "joystick", "consola", "ps4", "ps5", "xbox",
-            # Electronics & Home (Conflicts with GMPro)
-            "electrico", "altura regulable", "cable", "usb", "bateria", "cargador", "lampara",
-            # Medical Consumables (Exclude from match with Nutritional Products)
-            "guia", "set de gravedad", "set enfit", "equipo de alimentacion", "sonda", 
-            "bomba de alimentacion", "jeringa", "prolongador", "conexion",
-            # Books, Publishing & Authors (Conflicts with Fortini, etc.)
-            "libro", "tomo", "geometria", "contables", "manual", "tratado", "diccionario", "enciclopedia", "usado",
-            "novela", "editorial", "tapa blanda", "tapa dura", "inedite", "nabu pr", " Nabú", "autor", "escritor",
-            "pietro fortini", "annalisa fortini", "fortini brown", "franco fortini", "sara fortini",
-            # Religion & History (Conflicts with Fortini names)
-            "padre", "cristocentrica", "educacion cristocentrica", "vaticano", "papa", "religioso", "teologia", "renacimiento", "venecia",
-            "arte y vida", "bloodlines", "venetian",
-            # Media & Music
-            "disco", "musica", "artista", "sencillo", "pista",
-            # Electronics, Security & specialized Tech (Common Noise)
-            "gps", "tracker", "localizador", "rastreador", "rele", "gsm", "alarma", "electrificador", "smart watch", "grasa disipadora", 
-            "celular", "antena", "arduino", "modulo gprs", "sirena", "domotica", "control de accesos", "rfid", "wcdma", "central de control",
-            "monofasico", "trifasico", "avisador", "electrificacion", "comunicador eventos", "g100", "genno", "zkteco", "inbio", "rastreo",
-            "shiel sim", "gprs bds", "transmision voz", "posicionamiento", "abre portones", "barreras", "vecinal", "intelbras",
-            # Fitness & Sports
-            "fitness", "aerobic", "plataforma escalon", "balines", "tiro al blanco", "gamo pro", "precisión", "cast irons", "afeitadora", "cortapatillas",
-            # Construction, Hardware & Adhesives
-            "impermeabilizante", "sella fisuras", "tapa goteras", "gotita", "voligoma", "pegamento", "sellador", "caucho goma", "terrazas", "terrasas", "liquitech",
-            # Beauty, Dermo-cosmetics & Personal Care
-            "criogel", "lidherma", "labial", "brillo", "afirmante", "anticelulitico", "locion", "karite", "lip gloss", "micropigmentador", "cuidado de la piel",
-            # Cleaning, Chemicals & Home
-            "limpiador", "líquido rigel", "lavanda", "colonia", "pino", "cherry", "colchon", "inflable", "camping", "flocar césped", "bateria portátil",
-            # Pharma/Supplements (Out of Scope)
-            "peptona", "linfar", "peptonum", "cambrooke", "ketovie", "cetogenik", "ketologic", "ketomeal", "digecaps", "floragut", "cisteina", "vitalis", "hongo cola de pavo",
-            # Pets & Animal Care
-            "vitalcan", "perro", "cachorro", "gato", "mascota", "alimento balanceado", "alimento seco",
-            # Car Care & Detailing
-            "detailing", "pulido", "pasta para pulir", "zeocar", "pastas de pulir",
-            # Aquarium, Garden & Tools
-            "acuario", "pecera", "acuarios", "carbón activado", "namaste biomineral", "oro negro", "fertilizante", "calculadora", "tester", "medidor ph", "electrodo", "medidor",
-            # Hygiene, Beauty & Misc Home
-            "cepillo dental", "shampoo", "mascarilla", "toilette", "kaiak", "perfume", "otowil", "almendras", "aceite de oliva", "siete lagos", "flota flota", "flotador",
-            # Automotive Maintenance & Oils
-            "amortiguador", "cazoleta", "crapodina", "fusible", "filtro", "castrol", "motul", "valvoline", "liqui moly", "motorcraft", "ac delco", "gulf pride", "shell helix", "total quartz",
-            "aceite mineral", "aceite sintetico", "aceite moto", "aceite motor", "20w50", "10w40", "5w30", "actevo",
-            # Pool, Tools & Toys
-            "floculante", "mak floc", "piscina", "pileta", "cloro", "compresor", "michelin", "maxi bag", "film autoadherente", "x-shot", "municiones", "goma espuma",
-            # Barber & Haircutting
-            "yilho", "maquina de corte", "maquina patillera", "cuchilla oster", "cool care", "corte de pelo", "recortador", "nasal", "babyliss", "wahl", "andis", "shampoo barber",
-            # Personal Care & Hair Loss (Verify if Valcatil is noise) - Keeping it for now if it's unrelated, but being cautious
-            "valcatil", "anticaida", "dentifix", "calostro",
-            # Sports Nutrition
-            "whey protein", "masa muscular", "gold nutrition", "onefit",
-            # Collectibles & Misc
-            "postal", "russia", "stars", "biberones", "almohada", "flocadora", "plantas acuaticas", "estanques", "juntas de moto", "yamaha", "consola central",
-            # Phase 6: Misc Supplements (Out of Scope)
-            "centella forte", "osteo-gen", "omega-3", "omega 3", "resveratrol", "andrographis", "genciana", "genikinoko", "hepatodiates", "quelat", "enzimas digestivas", "digestive enzymes", "microbiota",
-            # Phase 6: Fitness & Gym Gear
-            "protector cervical", "barra alta densidad", "aro flexible", "flex ring", "pilates",
-            # Phase 6: Photography/Electronics
-            "triopo", "disparador radio", "flash", "repuesto g2 pro",
-            # Phase 6: Baby/Clothing
-            "baberos", "babero",
-            # Phase 6: Out-of-Scope Brands
-            "fynutrition", "eth nutrition", "provefarma", "geonat", "igennus", "pharmepa", "genestra", "herb pharm", "euromedica", "qol labs", "physician's choice",
-            # Phase 7: Garden/Insecticides/Herbicides
-            "glacoxan", "hormiga", "grillo topo", "insecticida", "herbicida", "acaros", "minador",
-            # Phase 7: Motorcycle Gear
-            "casco", "ls2", "modular", "rebatible",
-            # Phase 7: Herbal/Medicinal Plants
-            "tintura madre", "amor de hortelano", "galium aparine", "galio", "hierbas medicinales", "hepatoprotector", "boldo", "alcachofa",
-            # Phase 7: Cleaning/Chemicals (Misc)
-            "alginato sodio", "gluconolactato calcio", "gastronomia molecular", "percarbonato", "jabón cítrico", "blanqueador",
-            # Phase 7: Out-of-Scope Brands (Supplements)
-            "lifeseasons", "dr. mercola", "swanson", "xtrenght", "body advance", "picolinato de cromo", "nutricost",
-            # Phase 7: Baby Gear & Misc
-            "columpio", "mecedor", "joie", "salon line", "todecacho", "gelatina definición", "pazos", "daemonium",
-            # Phase 8: Amino Acids & Supplements (Out of Scope)
-            "fosfatidilserina", "berberina", "berberine", "melena de leon", "rigo beet", "maca", "nutrirte", "frutalax", "hibiscus", "amilasa", "amiloglucosidasa",
-            # Phase 8: Cosmetics & Hair Care
-            "plex", "bioplex", "protector decoloración", "clorhexidina", "jabón líquido", "duplex",
-            # Phase 8: Action Figures & Toys
-            "action fig", "custom scale", "male action",
-            # Phase 8: Obscure Books & Titles
-            "galaxian", "salumagia", "cataclismo",
-            # Phase 8: Out-of-Scope Brands
-            "corpo-fuerte", "carlyle", "dra coco march", "god bless you", "leguilab", "primaforce", "nutricost",
-            # Phase 9: Gummies & Candy-like Supplements
-            "gomitas", "gominolas", "moorgumy", "joyli", "agumoon", "u-cubes", "musgo marino",
-            # Phase 9: Books & Educational/Medical Info
-            "pituitaria", "galactorrea", "inductor quiral", "oxiranos", "montacargas galactico", "sintesis de",
-            # Phase 9: Electronics & General Tools
-            "cartucho hp", "gopro", "bateria recargable", "dispenser",
-            # Phase 9: Fashion, Travel & Accessories
-            "broches", "mochila", "llavero", "bolso", "pinza para el pelo", "lentejuelas", "vintage",
-            # Phase 9: Toys & Collectibles
-            "pokemon", "tcg", "smiling critters", "poppy playtime", "booster box", "mazo de batalla",
-            # Phase 9: Construction & Hardware
-            "brea pasta", "asfaltica", "parches autoadhesivos", "reparación de chaquetas",
-            # Phase 9: Baby Misc
-            "chupete", "clip bebé",
-            # Phase 9: Out-of-Scope Brands & Specific Supps
-            "omnilife", "biocros", "teatino", "theanine", "caffeine", "navitas organics", "nutrifoods", "batata morada", "lopecian", "curflex", "cúrcuma", "solgar",
-            # Phase 10: Adaptogens & Natural Treatments (Misc)
-            "reishi", "adaptógenos", "la aldea mdp", "mango orgánico", "diabetes", "hierbas naturales",
-            # Phase 10: Clothing & Fashion
-            "calcetines", "monedero", "tarjetero", "chaleco", "puffer", "ecocuero",
-            # Phase 10: Books (Educational & Fiction)
-            "bachillerato", "navarro francisco", "living with pku", "el dorado cósmico", "margarita del mazo", "the flock",
-            # Phase 10: Misc Home & Gear
-            "ungüento", "katité", "luz de señalización", "señal de giro", "party supplies", "navidad", "codera", "soporte para codo", "miniaturas dnd", "tubbz",
-            # Phase 10: Action Figure Clothing
-            "panchitalk", "tbleague", "phic",
-            # Phase 10: Out-of-Scope Brands
-            "leslabs", "standard process", "now foods", "now suplementos", "primal fx", "dr. ludwig johnson", "okf safari",
-            # Phase 11: Baby Gear & Toys
-            "ganchos de cochecito", "teether", "silla baño", "bañera", "disfraz", "halloween", "costume",
-            # Phase 11: Moto & Engine Parts
-            "junta carter", "junta base", "jailing", "junta cabezal", "honda pc", "guerrero gr6",
-            # Phase 11: Home & Decor noise
-            "cerámica", "porcelana", "lechera", "colgante", "mouse pad", "perfil ducal", "nariz escalon", "horquillas",
-            # Phase 11: Collectibles & History
-            "moneda", "franco", "replica", "ducado", "ducale", "casa ducal", "ducado de pastrana", "medinacelli", "duna", "monopolio",
-            # Phase 11: Sports & Performance (Hard Rejection)
-            "genetic", "testo", "sex man", "promarine", "legion fortify", "termofit",
-            # Phase 11: Misc Health (Out of scope)
-            "nutrinat", "adelgaza-t", "vitalpet", "artrofix", "cordyceps", "huevas de erizo",
-            # Phase 11: Books (More labels)
-            "metaprompts", "grimoire", "promocion artistica",
-            # Phase 12: Liquor & Aperitifs
-            "damonjag", "damonjäg", "hodlmoser", "krauterlikor", "licor de hierbas", "vaso acrílico", "posavasos",
-            # Phase 12: Pool Chemicals
-            "clarificador", "alguicida", "cacique",
-            # Phase 12: Industrial & Chemistry
-            "propilenglicol", "glicerina vegetal",
-            # Phase 12: Food & Cooking
-            "espesante", "almidón", "fecula de mandioca", "dicomere", "mandioca",
-            # Phase 12: General Health & Cosmetics (Out of scope)
-            "pulver", "nutrex", "biobellus", "atlhetica nutrition", "pellcare", "vitalil", "rubor", "i landa", "cosmética natural",
-            # Phase 12: Misc Home & Moto
-            "calefon", "zanella", "sapucai", "junta tapa",
-            # Phase 12: Legal & Books (Labels)
-            "ponce padilla", "defensa de la constitución", "ordenanza municipal", "baraja de cartas",
-            # Phase 13: Olive Oil & Broad Food
-            "aceite oliva", "virgen extra", "botellón", "fecula de mandioca", "almidón", "dicomere",
-            # Phase 14: Keto, MCT & Food Noise
-            "alfajor", "low carb", "dátil", "mayonesa", "salsa", "harina", "cetomix",
-            # Phase 14: Competitor & Large Health Brands
-            "ensure", "glucerna", "abbott", "natier", "nutrinías", "ahora suplementos", "gentech", "hochsport",
-            # Phase 14: Sports & Misc Supplements
-            "creatina", "natural whey", "propoleo",
-            # Phase 14: Beauty, Hair & Clothing
-            "alisado", "liss expert", "l'oréal", "loreal", "babydoll", "conejita", "ropa interior", "adornos navideños",
-            # Phase 14: Auto & Books (Misc)
-            "ypf extravida", "extravida", "bestway", "intex", "fluoretação", "heroina intergalactica", "maximalismo", "una historia de",
-            # Phase 15: Competitors (Baby Milk)
-            "sancor bebe", "sancor bebé", "nido", "hero baby",
-            # Phase 15: Generic Milks & Basic Foods
-            "leche entera", "leche descremada", "leche en polvo", "larga vida", "fortificada",
-            # Phase 15: Health & Beauty Noise
-            "arcor bagó", "arcor bago", "star nutrition", "centrum", "la roche-posay", "roche-posay", "alfaparf", "alta moda", "serum", "sérum", "hialurónico", "colágeno", "colageno", "magnesio",
-            # Phase 15: Misc & Hardware
-            "hypertherm", "tobera", "tapete", "foam infantil", "maternidad", "vestido", "hartmann", "simplicius", "linanthus",
-            # Phase 16: Shake & Competitor Specialists
-            "shake mix", "remplaza comida", "comida con", "comidamed", "aminomeed",
-            # Phase 16: Motor Parts (Gaskets)
-            "juego de juntas", "juntas para moto", "junta completa", "juki", "morini", "mondial", "honda c 90", "honda c90",
-            # Phase 16: Lingerie & Sexy Clothing
-            "lencería", "sexual", "sexy", "encaje", "pijama", "camisola", "body sexy",
-            # Phase 16: Baby Gear & Toys
-            "cortapelo", "audifonos baby", "baby bump", "hair clip", "tummy time", "juguetes sensoriales",
-            # Phase 16: Misc Home & Specialized Health
-            "dulkre", "edulcorante", "plato decorativo", "crown ducal", "etiquetas escolares", "lubricante intimo", "lubrigel", "refresh liquigel", "gotas lubricantes", "monoherb", "tremella",
-            # Phase 17: Motor & Industrial (Kawasaki, Electrical)
-            "kawasaki", "adly", "siambretta", "vimergy", "cable acelerador", "bomba de aceite", "grasa litio", "bulbo sensor", "sensor presion", "interruptor termomagnetico", "interruptor termomagnético", "aceite caja",
-            # Phase 17: Clothing & Baby Safety
-            "remera", "body bebe", "body bebé", "candado de seguridad", "regaliz",
-            # Phase 17: Specialized Supplements & Hair
-            "pudding", "protein factory", "syntha-6", "syntha 6", "goma xantica", "syrup fusion", "oleos vitales", "system 3",
-            # Phase 18: Nootropics & Specialized Supplements
-            "bacopa", "tmgenex", "tmg genex", "nootropics", "threonato", "neuro-protección", "vitamina k completa",
-            # Phase 18: Competitors (Specialist Milk)
-            "aminomed", "fresenius kabi", "nutribio",
-            # Phase 18: Industrial & Tooling
-            "jebao", "diodo doble", "boyero eléctrico", "regulador de carga", "pedal max", "aceite gulf", "pegamil", "bulit azul",
-            # Phase 18: Food & Oil Misc
-            "aceite de coco", "aceite de ricino", "ducoco", "maniax", "maxim white", "mocha gold",
-            # Phase 18: Misc (Books & CDs)
-            "mamimiau", "pastrana", "usa import cd",
-            # Phase 19: Competitors & Specific Lines
-            "sancor advanced", "nuskin", "lifepak", "pampita", "collagen", "colágeno", "colageno",
-            # Phase 19: Generic Pharma & Hair
-            "total magnesiano", "fidelite", "máscara capilar", "mascara capilar",
-            # Phase 19: Motor & Accessories
-            "tapa llenado", "funda compatible", "ufree", "novah",
-            # Phase 20: Nutricia Adjacent (Aggressive Noise)
-            "fresubin", "frebini", "reconvan", "fresenius kabi",
-            # Phase 21: Liquor & Generic Oils
-            "licor", "giffard", "lichi-li", "aceite de cocina", "aceite de girasol", "aceite mezcla",
-            # Phase 22: Typos & Generic Filter Refinement
-            "infantrini", "infartrini", "aceite nativo", "aceite de oliva", "aceite puro",
-            # Phase 23: Aggressive Noise (Identificando...)
-            "casco", "ls2", "escritorio", "fusible", "bateria", "alimento balanceado", "perro", "gato", "asfalto", "brea", "tintura", "ampolla", "rgb", "gamer",
-            "mueble", "silla", "colchoneta", "gimnasia", "pilates", "arduino", "gsm", "gps", "tracker", "alarma", "rele", "relé", "celular", "funda", "vidrio templado",
-            "repuesto", "junta", "motor", "aceite moto", "aceite motor", "lubricante", "afeitadora", "cortapatillas", "perfume", "fragancia",
-            # Phase 24: Screenshot Noise (Identificando... Refined)
-            "puerta", "trasera", "delantera", "baul", "gol trend", "voyage", "muñeco", "figura de carton", "dune", "monopoly", "atlas de rutas", "despolvillador",
-            "yerba", "toalla", "pelota", "mordedor", "juguete de madera", "montessori", "handheld grass", "máquina para césped", "charla interactiva", "moldes para tubos",
-            "gabapentina", "cd ", "libro", "manual", "historia de", "caracterización"
-        ]
-        if any(kw in title_lower for kw in exclusion_keywords):
-            return 0, 0, {"reason": "exclusion_keyword", "item_status": "noise"}
-            
-        # 0.1 Category-Based Rejection (Aggressive)
-        noise_categories = [
-            "Accesorios para Vehículos", "Computación", "Hogar, Muebles y Jardín", 
-            "Animales y Mascotas", "Belleza y Cuidado Personal", "Industrias y Oficinas",
-            "Electrónica, Audio y Video", "Celulares y Teléfonos", "Herramientas", "Construcción",
-            "Libros, Revistas y Comics", "Música, Películas y Series", "Juegos y Juguetes", 
-            "Antigüedades y Colecciones", "Otras categorías"
-        ]
-        l_cat = listing_attrs.get("category", "")
-        if any(nc.lower() in l_cat.lower() for nc in noise_categories):
-            # Special bypass for Nutricia-like items in health categories
-            if not any(b in title_lower for b in ["nutrilon", "vital", "neocate", "fortisip", "fortini"]):
-                return 0, 0, {"reason": "noise_category", "item_status": "noise"}
+        category = listing_attrs.get("category", "")
 
-        # 1. Brand Match (Critical)
-        l_brand = (listing_attrs.get("brand") or listing_attrs.get("marca") or "").lower()
+        # 1. Hard Exclusions
+        is_noise, reason = self._check_hard_exclusions(title_lower, category)
+        if is_noise:
+            return 0, 0, {"reason": reason, "item_status": "noise"}
+
+        # 2. Brand Match
+        attr_brand = listing_attrs.get("brand") or listing_attrs.get("marca")
+        l_brand = self._detect_brand(title_lower, attr_brand)
         m_brand = (master_product.get("brand") or "").lower()
-        
-        # If scraper didn't detect brand, try to find it in title
-        nutricia_brands = [
-            "nutrilon", "vital", "neocate", "fortisip", "fortini", "nutrison", "peptisorb", "diasip", "loprofin",
-            "infatrini", "ketocal", "souvenaid", "cubitan", "mct oil", "monogen", "liquigen", "secalbum", 
-            "espesan", "gmpro", "galactomin", "ketoblend", "maxamum", "lophlex", "ls baby", "fortifit", 
-            "duocal", "polimerosa", "advanta", "pku", "flocare", "anamix", "l'serina", "serina", "profutura"
-        ]
-        if not l_brand:
-            for b in nutricia_brands:
-                if b in title_lower:
-                    l_brand = b
-                    break
-        
+
         if l_brand and m_brand:
-            # If brands are explicitly different and non-overlapping, it's a mismatch
             if l_brand != m_brand and l_brand not in m_brand and m_brand not in l_brand:
-                # REJECT known external brands that mimic Nutricia names
-                external_mimics = ["vitalcan", "vitalis", "vitalife"]
-                if any(mimic in title_lower for mimic in external_mimics):
+                if any(mimic in title_lower for mimic in EXTERNAL_MIMICS):
                     return 0, 0, l_brand # Hard rejection
                 score -= 60 
             else:
                 matches += 1
         
-        # NEW CRITICAL RULE: Mandatory Brand Presence
-        # If the master brand keyword is not in the title, reject the match
-        # This prevents generic "infant" or "protein" products from other brands from matching
+        # Mandatory Brand Presence check
         if m_brand not in title_lower and m_brand not in l_brand:
             return 0, 0, l_brand # Hard rejection for lack of brand intent
             
-        # 1.1 Category Consistency check
-        # If the master is a supplement/formula but the title strongly indicates furniture/tech
+        # 3. Categorical Consistency
         m_substance = (master_product.get("substance") or "").lower()
         if m_substance in ["polvo", "liquido", "formula", "suplemento"]:
             tech_indicators = ["gamer", "rgb", "escritorio", "monitor", "pc", "teclado"]
@@ -493,8 +269,7 @@ class IdentificationEngine:
         # Pre-detect brand to use in strict floors
         l_brand = (listing_attrs.get("brand") or listing_attrs.get("marca") or "").lower()
         if not l_brand:
-            nutricia_brands = ["nutrilon", "vital", "neocate", "fortisip", "fortini", "nutrison", "peptisorb", "diasip", "loprofin", "profutura"]
-            for b in nutricia_brands:
+            for b in NUTRICIA_BRANDS:
                 if b in listing_title_norm:
                     l_brand = b
                     break
