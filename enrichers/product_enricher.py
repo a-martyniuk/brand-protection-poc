@@ -423,7 +423,7 @@ class ProductEnricher:
             return None
 
     def _parse_stock_from_data(self, data, details):
-        """Helper to parse available_quantity and variations from API response."""
+        """Helper to parse available_quantity and metadata from API response."""
         total_stock = data.get("available_quantity", 0)
         variations = data.get("variations", [])
         
@@ -438,6 +438,19 @@ class ProductEnricher:
                     "attributes": {a.get("name"): a.get("value_name") for a in v.get("attribute_combinations", [])}
                 } for v in variations
             ]
+            
+        # Extract Metadata for Brand Protection from API response
+        # Note: API response structure is slightly different from DOM State
+        details['metadata'] = {
+            'seller_id': data.get('seller_id'),
+            'seller_name': f"ID: {data.get('seller_id')}", # Nickname usually requires /users call
+            'is_official_store': data.get('official_store_id') is not None and data.get('official_store_id') > 0,
+            'sold_quantity': data.get('sold_quantity', 0),
+            'condition': data.get('condition', 'new'),
+            'main_image': data.get('thumbnail') or (data.get('pictures')[0].get('url') if data.get('pictures') else None),
+            'health': data.get('health')
+        }
+        
         return total_stock
     
     def update_product(self, product_id, details):
