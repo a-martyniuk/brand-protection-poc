@@ -69,16 +69,52 @@ class SupabaseHandler:
 
     def get_master_products(self, brand=None):
         """
-        Retrieves all master products to use as the source of truth.
+        Retrieves all master products using pagination to bypass the 1000 limit.
         """
         try:
-            query = self.supabase.table("master_products").select("*")
-            if brand:
-                query = query.eq("brand", brand)
-            response = query.execute()
-            return response.data
+            all_data = []
+            page_size = 1000
+            start = 0
+            
+            while True:
+                query = self.supabase.table("master_products").select("*").range(start, start + page_size - 1)
+                if brand:
+                    query = query.eq("brand", brand)
+                
+                response = query.execute()
+                data = response.data
+                all_data.extend(data)
+                
+                if len(data) < page_size:
+                    break
+                start += page_size
+                
+            return all_data
         except Exception as e:
             print(f"Error fetching master products: {e}")
+            return []
+
+    def get_meli_listings(self):
+        """
+        Retrieves all listings using pagination to bypass the 1000 limit.
+        """
+        try:
+            all_data = []
+            page_size = 1000
+            start = 0
+            
+            while True:
+                response = self.supabase.table("meli_listings").select("*").range(start, start + page_size - 1).execute()
+                data = response.data
+                all_data.extend(data)
+                
+                if len(data) < page_size:
+                    break
+                start += page_size
+                
+            return all_data
+        except Exception as e:
+            print(f"Error fetching Meli listings: {e}")
             return []
 
     # Keeping legacy methods for transition if needed, but updating to use new tables internally

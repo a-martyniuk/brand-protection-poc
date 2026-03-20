@@ -67,38 +67,35 @@ async def run_pipeline():
     # 5. Background Enrichment (NEW: Automated Deep Scraping)
     print("\n🔍 Checking for listings that need deep enrichment...")
     from enrichers.product_enricher import ProductEnricher
-    enricher = ProductEnricher(batch_size=10, delay_between_requests=2)
+    # Using serial mode (batch=1, delay=random 8-63s) for stealth
+    enricher = ProductEnricher(batch_size=1)
     
-    # We only enrich products that were just scraped/updated and missing data
-    # For PoC speed, we limit this to a small number or only those from this run
-    # For now, let's run it for the products we just synced that lack EAN
-    await enricher.enrich_products(limit=50) 
+    # Scale to 10,000 items as requested
+    await enricher.enrich_products(limit=10000) 
     
-    # Reload listings from DB to get enriched data (EAN, brand, attributes)
-    print("Reloading enriched listings from database...")
-    enriched_response = db.supabase.table("meli_listings").select("*").in_("meli_id", [l["meli_id"] for l in listings_to_sync]).execute()
-    raw_listings_enriched = enriched_response.data
-
-    # Map meli_id -> listing_uuid
-    meli_to_uuid = {l["meli_id"]: l["id"] for l in raw_listings_enriched}
-
-    # 6. Identification & Compliance Audit
+    # 6. Identification & Compliance Audit (In Batches)
     print("Running Identification & Compliance Audit...")
     audit_records = []
     
-    # Use unique_listings values instead of raw_listings to avoid duplicate audit records
-    for l in unique_listings.values():
-        if l["meli_id"] not in meli_to_uuid: continue
-        
-        listing_uuid = meli_to_uuid[l["meli_id"]]
-        
-        # Run Identification & Audit
+    # Reload listings from DB in chunks (Supabase .in_ limit is ~1000)
+    batch_size = 1000
+    all_enriched = []
+    for i in range(0, len(listings_to_sync), batch_size):
+        batch_ids = [l["meli_id"] for l in listings_to_sync[i:i+batch_size]]
+        response = db.supabase.table("meli_listings").select("*").in_("meli_id", batch_ids).execute()
+        all_enriched.extend(response.data)
+
+    # Map meli_id -> listing_uuid
+    meli_to_uuid = {l["meli_id"]: l["id"] for l in all_enriched}
+    
+    # Run Identification & Audit
+    for l in all_enriched:
         audit = engine.identify_product(l)
         fraud_score = audit["fraud_score"]
         risk_level = engine.get_risk_level(fraud_score)
         
         audit_records.append({
-            "listing_id": listing_uuid,
+            "listing_id": meli_to_uuid[l["meli_id"]],
             "master_product_id": audit["master_product_id"],
             "match_level": audit["match_level"],
             "is_brand_correct": audit["is_brand_correct"],
