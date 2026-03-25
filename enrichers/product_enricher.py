@@ -294,8 +294,16 @@ class ProductEnricher:
                 
             await page.goto(clean_url, wait_until="domcontentloaded", timeout=30000)
             
-            # Bot/Login Wall Detection
-            if any(p in page.url for p in ["account-verification", "negative_traffic", "login", "auth"]):
+            # Bot/Login Wall / Redirected Detection
+            if any(p in page.url for p in ["account-verification", "negative_traffic", "login", "auth", "mercadolibre.com.ar/#", "mercadolibre.com.ar/$"]):
+                logger.info(f"    ⚠ Redirection detected: {page.url}")
+                # If it's a "negative traffic" or "account verification" redirect, it's restricted/closed
+                if "negative_traffic" in page.url or "account-verification" in page.url:
+                    details["item_status"] = "paused"
+                    details["description"] = f"Restricted: {page.url}"
+                    return details
+                
+                # If it's a general login wall, we might want to pause
                 print("\n" + "!"*80 + "\n🛑 BLOQUEO/LOGIN: Completa el login/captcha en Chrome y presiona ENTER...")
                 await asyncio.get_event_loop().run_in_executor(None, input, "Presiona ENTER para reanudar...")
                 return await self.scrape_product_details(page, url)
@@ -372,8 +380,13 @@ class ProductEnricher:
                                          document.body.innerText.match(/Tienda oficial\s+([^\n]+)/i)?.[1] || 
                                          null;
 
-                        const itemStatus = state?.item?.status || "active";
+                        let itemStatus = state?.item?.status || "active";
                         const unavailableMsg = document.querySelector('.ui-pdp-message')?.innerText || "";
+                        
+                        // Refined: If there's an explicit "Not Available" message, it's not "active" in practice
+                        if (unavailableMsg && (unavailableMsg.toLowerCase().includes("no está disponible") || unavailableMsg.toLowerCase().includes("no disponible"))) {
+                            itemStatus = "paused"; // Or something visually distinct like "unavailable"
+                        }
                         
                         return {
                             ean: ean,

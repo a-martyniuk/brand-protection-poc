@@ -20,6 +20,8 @@ def fix_schema():
     try:
         # Fallback: Just update the ingestion script to handle missing columns gracefully
         print("Schema fix requires SQL Editor access or a specific RPC. Proceeding to update ingestion script to be resilient.")
+    except Exception:
+        pass
 
 if __name__ == "__main__":
     fix_schema()

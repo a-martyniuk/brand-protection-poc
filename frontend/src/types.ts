@@ -88,4 +88,3 @@ export interface Violation {
     thumbnail?: string;
 }
 
-export type FilterType = 'ALL' | 'PRICE' | 'BRAND_MISM' | 'RESTRICTED' | 'SUSPICIOUS' | 'TOTAL_ANALYZED';

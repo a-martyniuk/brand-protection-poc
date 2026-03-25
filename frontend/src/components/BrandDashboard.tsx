@@ -4,11 +4,10 @@ import { useBrandData } from '../hooks/useBrandData';
 import { exportToCSV } from '../utils/exportUtils';
 import StatCard from './StatCard';
 import ProductListView from './ProductListView';
-import AnalyticsView from './AnalyticsView';
 
 const BrandDashboard: React.FC = () => {
     const { products, stats, enrichmentStats, loading, fetchData, runPipeline, refreshScores, discardProduct, restoreProduct } = useBrandData();
-    const [activeTab, setActiveTab] = useState<'products' | 'analytics' | 'noise'>('products');
+    const [activeTab, setActiveTab] = useState<'products' | 'noise'>('products');
 
     const handleExport = () => {
         const legacyFormat = products.map(p => ({
@@ -105,15 +104,6 @@ const BrandDashboard: React.FC = () => {
                             Product Audit
                         </button>
                         <button
-                            onClick={() => setActiveTab('analytics')}
-                            className={`px-5 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-300 ${activeTab === 'analytics'
-                                ? 'bg-brand-500 text-white shadow-[0_0_20px_rgba(var(--brand-500),0.3)]'
-                                : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
-                                }`}
-                        >
-                            Analytics
-                        </button>
-                        <button
                             onClick={() => setActiveTab('noise')}
                             className={`px-5 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-300 ${activeTab === 'noise'
                                 ? 'bg-slate-700 text-white'
@@ -125,23 +115,7 @@ const BrandDashboard: React.FC = () => {
                     </div>
                 </header>
 
-                {activeTab === 'analytics' ? (
-                    <AnalyticsView violations={products.map(p => ({
-                        id: p.id,
-                        meli_id: p.meli_id,
-                        type: p.fraud_score > 60 ? 'HIGH_RISK' : p.fraud_score > 30 ? 'MEDIUM_RISK' : 'LOW_RISK',
-                        product: p.title,
-                        seller: p.seller,
-                        seller_location: p.seller_location,
-                        price: p.price,
-                        expected: p.master_product?.list_price || 0,
-                        status: p.status,
-                        url: p.url,
-                        thumbnail: p.thumbnail
-                    }))} />
-                ) : (
-                    <>
-                        {/* Stats Grid */}
+                {/* Stats Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                             <StatCard
                                 title="Total Scanned"
@@ -194,8 +168,6 @@ const BrandDashboard: React.FC = () => {
                                 viewMode={activeTab === 'noise' ? 'NOISE' : 'ACTIVE'}
                             />
                         </div>
-                    </>
-                )}
             </main>
 
             <footer className="max-w-7xl mx-auto px-8 py-12 border-t border-white/5 opacity-50">

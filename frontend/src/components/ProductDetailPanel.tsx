@@ -66,7 +66,11 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({ product, onClos
                                 Score: {product.fraud_score}/100
                             </span>
                             <a
-                                href={product.url}
+                                href={(() => {
+                                    const mlaMatch = product.url.match(/MLA-?(\d+)/);
+                                    const meliId = (product.meli_id && product.meli_id !== 'N/A') ? product.meli_id.replace(/\D/g, '') : (mlaMatch ? mlaMatch[1] : null);
+                                    return meliId ? `https://articulo.mercadolibre.com.ar/MLA-${meliId}` : product.url;
+                                })()}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-brand-500/20 text-brand-400 border border-brand-500/30 hover:bg-brand-500/30 transition-all"

@@ -71,6 +71,23 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
         );
     };
 
+    const getResilientUrl = (product: ProductAudit) => {
+        // 1. Prioritize building from specific meli_id
+        if (product.meli_id && product.meli_id !== 'N/A') {
+            const cleanId = product.meli_id.replace(/\D/g, '');
+            return `https://articulo.mercadolibre.com.ar/MLA-${cleanId}`;
+        }
+        
+        // 2. Fallback: Extract ID from any URL string (useful if tracking URL is present but meli_id is N/A)
+        const idMatch = product.url.match(/MLA-?(\d+)/);
+        if (idMatch) {
+            return `https://articulo.mercadolibre.com.ar/MLA-${idMatch[1]}`;
+        }
+        
+        // 3. Absolute fallback
+        return product.url;
+    };
+
     const getStatusBadge = (status?: string) => {
         if (!status || status === 'active') return <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-tighter">● Active</span>;
         if (status === 'paused') return <span className="text-[10px] text-amber-500 font-bold uppercase tracking-tighter">● Paused</span>;
@@ -195,7 +212,19 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                             {/* Title */}
                             <div className="flex flex-col">
                                 <span className="text-sm font-bold text-white group-hover:text-brand-400 transition-colors line-clamp-2">{product.title}</span>
-                                <span className="text-xs text-slate-500 mt-1">ID: {product.meli_id}</span>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-xs text-slate-500">ID: {product.meli_id}</span>
+                                    <a
+                                        href={getResilientUrl(product)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="p-1 hover:bg-white/10 rounded transition-all text-slate-500 hover:text-brand-400"
+                                        title="Abrir en MercadoLibre"
+                                    >
+                                        <ExternalLink className="w-3 h-3" />
+                                    </a>
+                                </div>
                             </div>
 
                             {/* Matched Brand */}
@@ -274,7 +303,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                                      <ExternalLink
                                          onClick={(e) => {
                                              e.stopPropagation();
-                                             window.open(product.url, '_blank');
+                                             window.open(getResilientUrl(product), '_blank');
                                          }}
                                          className="w-4 h-4 text-slate-500 hover:text-brand-400 transition-colors cursor-pointer"
                                      />
