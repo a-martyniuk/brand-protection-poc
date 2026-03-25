@@ -205,8 +205,8 @@ class ProductEnricher:
     
     def get_products_to_enrich(self, limit=None):
         """
-        Get products that need enrichment (missing EAN or brand).
-        Uses pagination to bypass the 1000 limit.
+        Get products that need enrichment.
+        Now fetches via compliance_audit to ensure we only enrich NON-NOISE matched items.
         """
         try:
             all_products = []
@@ -214,29 +214,29 @@ class ProductEnricher:
             start = 0
             
             while True:
-                # Calculate current range
-                current_end = start + page_size - 1
+                response = self.db.supabase.table("compliance_audit").select(
+                    "meli_listings!inner(*)"
+                ).or_("match_level.gt.0,fraud_score.gt.0").range(start, start + page_size - 1).execute()
                 
-                # If we have a limit, ensure we don't fetch more than needed
-                if limit and current_end >= limit:
-                    current_end = limit - 1
-                
-                query = self.db.supabase.table("meli_listings").select("*").not_.in_(
-                    "item_status", ["noise", "noise_manual"]
-                ).order(
-                    "last_enriched_at", desc=False, nullsfirst=True
-                ).range(start, current_end)
-                
-                response = query.execute()
                 data = response.data
-                all_products.extend(data)
+                if not data:
+                    break
                 
-                # Break if we've reached the end of the data or our requested limit
-                if len(data) < page_size or (limit and len(all_products) >= limit):
+                for row in data:
+                    listing = row.get("meli_listings")
+                    if listing and isinstance(listing, dict):
+                        # Extra safeguard: ensure not manually marked as noise
+                        if listing.get("item_status") not in ["noise", "noise_manual"]:
+                            all_products.append(listing)
+                            
+                if len(data) < page_size:
                     break
                     
                 start += page_size
                 
+            # Sort locally by last_enriched_at (nulls first -> oldest enriched first)
+            all_products.sort(key=lambda x: x.get("last_enriched_at") or "1970-01-01T00:00:00")
+            
             return all_products[:limit] if limit else all_products
         except Exception as e:
             print(f"Error fetching products: {e}")

@@ -142,17 +142,34 @@ class MeliAPIEnricher:
         print("=" * 80)
     
     def get_products_to_enrich(self, limit=None):
-        """Get products that need enrichment."""
+        """Get products that need enrichment and are NOT noise."""
         try:
-            query = self.db.supabase.table("meli_listings").select("*").or_(
-                "ean_published.is.null,brand_detected.is.null"
-            )
+            all_products = []
+            page_size = 1000
+            start = 0
             
-            if limit:
-                query = query.limit(limit)
-            
-            response = query.execute()
-            return response.data
+            while True:
+                response = self.db.supabase.table("compliance_audit").select(
+                    "meli_listings!inner(*)"
+                ).or_("match_level.gt.0,fraud_score.gt.0").range(start, start + page_size - 1).execute()
+                
+                data = response.data
+                if not data:
+                    break
+                    
+                for row in data:
+                    listing = row.get("meli_listings")
+                    if listing and isinstance(listing, dict):
+                        # Check nulls in ean or brand, and ensure not manual noise
+                        if (not listing.get("ean_published") or not listing.get("brand_detected")) and \
+                           listing.get("item_status") not in ["noise", "noise_manual"]:
+                            all_products.append(listing)
+                            
+                if len(data) < page_size:
+                    break
+                start += page_size
+
+            return all_products[:limit] if limit else all_products
         except Exception as e:
             print(f"Error fetching products: {e}")
             return []

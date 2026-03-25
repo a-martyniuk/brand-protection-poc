@@ -64,17 +64,8 @@ async def run_pipeline():
         print("Failed to sync listings. Aborting audit.")
         return
 
-    # 5. Background Enrichment (NEW: Automated Deep Scraping)
-    print("\n🔍 Checking for listings that need deep enrichment...")
-    from enrichers.product_enricher import ProductEnricher
-    # Using serial mode (batch=1, delay=random 8-63s) for stealth
-    enricher = ProductEnricher(batch_size=1)
-    
-    # Scale to 10,000 items as requested
-    await enricher.enrich_products(limit=10000) 
-    
-    # 6. Identification & Compliance Audit (In Batches)
-    print("Running Identification & Compliance Audit...")
+    # 5. Identification & Compliance Audit (Initial Fast Pass)
+    print("\n⚡ Running Initial Identification & Compliance Audit...")
     audit_records = []
     
     # Reload listings from DB in chunks (Supabase .in_ limit is ~1000)
@@ -107,11 +98,27 @@ async def run_pipeline():
         })
 
     if audit_records:
-        print(f"Logging {len(audit_records)} audit results to Supabase...")
+        print(f"Logging {len(audit_records)} initial audit results to Supabase...")
         db.log_compliance_audit(audit_records)
-        print("Pipeline execution complete.")
     else:
         print("No audit records generated.")
+
+    # 6. Background Enrichment (Automated Deep Scraping ONLY on matched products)
+    print("\n🔍 Checking for matched listings that need deep enrichment...")
+    from enrichers.product_enricher import ProductEnricher
+    # Using serial mode (batch=1, delay=random 8-63s) for stealth
+    enricher = ProductEnricher(batch_size=1)
+    
+    # Scale to 10,000 items as requested
+    await enricher.enrich_products(limit=10000) 
+    
+    # 7. Final Re-Audit (Only for enriched items to update scores)
+    print("\n🔄 Running Final Audit to incorporate enriched data...")
+    # Refresh all active audit records to make sure UI is up to date
+    import subprocess
+    import sys
+    subprocess.run([sys.executable, "refresh_audit.py"])
+    print("Pipeline execution complete.")
 
 if __name__ == "__main__":
     asyncio.run(run_pipeline())
