@@ -28,7 +28,7 @@ const BrandDashboard: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-brand-500/30">
-            {/* Header */}
+            {/* Encabezado */}
             <nav className="border-b border-white/10 bg-slate-900/40 backdrop-blur-xl sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
                     <div className="flex items-center gap-3">
@@ -42,16 +42,16 @@ const BrandDashboard: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-4">
-                        {/* Status Info */}
+                        {/* Información de Estado */}
                         <div className="hidden lg:flex flex-col items-end mr-4">
                             <div className="flex items-center gap-2">
                                 <span className={`w-2 h-2 rounded-full ${enrichmentStats.isRunning ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'}`}></span>
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                    {enrichmentStats.isRunning ? 'Scraping Active' : 'Auditoría al día'}
+                                    {enrichmentStats.isRunning ? 'Extracción Activa' : 'Auditoría al día'}
                                 </span>
                             </div>
                             <span className="text-[9px] text-slate-500 font-medium">
-                                {stats.last_audit ? `Último Audit: ${new Date(stats.last_audit).toLocaleString()}` : 'No audit data'}
+                                {stats.last_audit ? `Último Audit: ${new Date(stats.last_audit).toLocaleString()}` : 'Sin datos de auditoría'}
                             </span>
                         </div>
 
@@ -61,7 +61,7 @@ const BrandDashboard: React.FC = () => {
                         >
                             <Shield className="w-3.5 h-3.5" />
                             <span className="text-xs font-bold uppercase tracking-wider">
-                                Refresh Scores
+                                Actualizar Puntajes
                             </span>
                         </button>
 
@@ -70,7 +70,7 @@ const BrandDashboard: React.FC = () => {
                             className="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-5 py-2 rounded-full border border-white/10 transition-all active:scale-95"
                         >
                             <ExternalLink className="w-3.5 h-3.5" />
-                            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Export</span>
+                            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Exportar</span>
                         </button>
 
                         <button
@@ -85,7 +85,7 @@ const BrandDashboard: React.FC = () => {
             </nav>
 
             <main className="max-w-7xl mx-auto p-4 md:p-8 space-y-10">
-                {/* Hero Section */}
+                {/* Sección Principal */}
                 <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-white/5">
                     <div className="space-y-2">
                         <h1 className="text-4xl font-black tracking-tighter text-white">Estado de Situación</h1>
@@ -101,7 +101,7 @@ const BrandDashboard: React.FC = () => {
                                 : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
                                 }`}
                         >
-                            Product Audit
+                            Auditoría de Productos
                         </button>
                         <button
                             onClick={() => setActiveTab('noise')}
@@ -110,49 +110,49 @@ const BrandDashboard: React.FC = () => {
                                 : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
                                 }`}
                         >
-                            Noise
+                            Ruido
                         </button>
                     </div>
                 </header>
 
-                {/* Stats Grid */}
+                {/* Cuadrícula de Estadísticas */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                             <StatCard
-                                title="Total Scanned"
+                                title="Total Escaneado"
                                 value={stats.scanned.toLocaleString()}
-                                label="Products in monitoring pool"
+                                label="Productos en monitoreo"
                                 icon={<Search className="text-blue-400" />}
                             />
                             <StatCard
-                                title="High Risk"
+                                title="Riesgo Alto"
                                 value={stats.high_risk.toString()}
-                                label="Fraud score > 60"
+                                label="Puntaje de fraude > 60"
                                 variant="warning"
                                 icon={<AlertTriangle className="text-red-400" />}
                             />
                             <StatCard
-                                title="Medium Risk"
+                                title="Riesgo Medio"
                                 value={stats.medium_risk.toString()}
-                                label="Fraud score 30-60"
+                                label="Puntaje de fraude 30-60"
                                 icon={<TrendingUp className="text-amber-400" />}
                             />
                             <StatCard
-                                title="Low Risk"
+                                title="Riesgo Bajo"
                                 value={stats.low_risk.toString()}
-                                label="Fraud score < 30"
+                                label="Puntaje de fraude < 30"
                                 variant="success"
                                 icon={<CheckCircle2 className="text-emerald-400" />}
                             />
                         </div>
 
-                        {/* Product List */}
+                        {/* Lista de Productos */}
                         <div className="space-y-6">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-brand-500/10 rounded-lg">
                                     <Shield className="w-5 h-5 text-brand-500" />
                                 </div>
                                 <h2 className="text-xl font-black text-white tracking-tight">
-                                    {activeTab === 'noise' ? 'Noise & Discarded Items' : 'Product Compliance Audit'}
+                                    {activeTab === 'noise' ? 'Ruido y Descartados' : 'Auditoría de Cumplimiento'}
                                 </h2>
                             </div>
 
@@ -173,7 +173,7 @@ const BrandDashboard: React.FC = () => {
             <footer className="max-w-7xl mx-auto px-8 py-12 border-t border-white/5 opacity-50">
                 <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
                     <span>BeOn Brand Protection</span>
-                    <span>&copy; {new Date().getFullYear()} PoC Dashboard</span>
+                    <span>&copy; {new Date().getFullYear()} Panel de Prueba de Concepto</span>
                 </div>
             </footer>
         </div>

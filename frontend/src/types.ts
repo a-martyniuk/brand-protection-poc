@@ -1,4 +1,4 @@
-// Field-level validation status
+// Estado de validación a nivel de campo
 export interface FieldStatus {
     scraped: string | number;
     master: string | number;
@@ -11,7 +11,7 @@ export interface FieldStatus {
     master_unit_value?: string | number;
 }
 
-// Complete product audit with field breakdown
+// Auditoría completa del producto con desglose de campos
 export interface ProductAudit {
     id: string;
     meli_id: string;
@@ -24,13 +24,13 @@ export interface ProductAudit {
     available_stock?: number;
     item_status?: string; // "active" | "paused" | "closed" | "noise" | "noise_manual"
 
-    // Match and compliance info
+    // Información de coincidencia y cumplimiento
     match_level: number; // 0-3 (0=unidentified, 1=EAN, 2=Fuzzy, 3=Suspicious)
     fraud_score: number; // 0-100
     risk_level: string; // "Alto" | "Medio" | "Bajo"
     status: string; // "PENDING" | "REPORTED" | "CLEAN"
 
-    // Field-level breakdown
+    // Desglose de campos
     fields: {
         ean: FieldStatus;
         brand: FieldStatus;
@@ -41,7 +41,7 @@ export interface ProductAudit {
         publishable: FieldStatus;
     };
 
-    // Master product reference
+    // Referencia del producto maestro
     master_product?: {
         id: string;
         product_name: string;
@@ -51,7 +51,7 @@ export interface ProductAudit {
         ean: string;
     };
 
-    // Raw violation details for debugging
+    // Detalles raw de violaciones para depuración
     violation_details?: any;
 }
 
@@ -68,7 +68,7 @@ export interface DashboardStats {
 export type RiskFilter = 'ALL' | 'Alto' | 'Medio' | 'Bajo';
 export type MatchFilter = 'ALL' | 'EAN' | 'Fuzzy' | 'Suspicious' | 'Unidentified';
 
-// Legacy type for backward compatibility (will be removed)
+// Tipo heredado para compatibilidad hacia atrás (será eliminado)
 export interface Violation {
     id: string;
     meli_id?: string;

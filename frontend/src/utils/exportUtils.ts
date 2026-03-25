@@ -1,7 +1,7 @@
 import { Violation } from '../types';
 
 export const exportToCSV = (violations: Violation[]) => {
-    const headers = ["ID MeLi", "Producto", "Vendedor", "Ubicacion", "Status", "Tipo", "Precio", "MAP", "URL"];
+    const headers = ["ID MeLi", "Producto", "Vendedor", "Ubicación", "Estado", "Tipo", "Precio", "MAP", "URL"];
     const rows = violations.map((v: Violation) => [
         v.meli_id,
         v.product,

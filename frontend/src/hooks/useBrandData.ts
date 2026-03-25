@@ -3,24 +3,24 @@ import { supabase } from '../supabaseClient';
 import { ProductAudit, DashboardStats, FieldStatus } from '../types';
 
 /**
- * Parses violation_details JSONB into structured field-level comparison
+ * Parsea violation_details JSONB a una comparación estructurada a nivel de campo
  */
 function parseFieldStatus(audit: any, listing: any, master: any): ProductAudit['fields'] {
     const details = audit.violation_details || {};
 
     return {
         ean: {
-            scraped: listing?.ean_published || 'Not provided',
+            scraped: listing?.ean_published || 'No provisto',
             master: master?.ean || 'N/A',
             status: details.missing_ean ? 'warning' : (listing?.ean_published ? 'approved' : 'n/a'),
-            details: details.missing_ean ? 'EAN not provided in listing' : undefined,
+            details: details.missing_ean ? 'EAN no provisto en la publicación' : undefined,
             score_impact: details.missing_ean ? 20 : 0
         },
         brand: {
-            scraped: details.brand_mismatch?.found || listing?.brand_detected || details.detected_brand || 'Not detected',
+            scraped: details.brand_mismatch?.found || listing?.brand_detected || details.detected_brand || 'No detectada',
             master: details.brand_mismatch?.expected || master?.brand || 'N/A',
             status: details.brand_mismatch ? 'rejected' : 'approved',
-            details: details.brand_mismatch ? `Expected "${details.brand_mismatch.expected}", found "${details.brand_mismatch.found}"` : undefined,
+            details: details.brand_mismatch ? `Esperado "${details.brand_mismatch.expected}", encontrado "${details.brand_mismatch.found}"` : undefined,
             score_impact: details.brand_mismatch ? 30 : 0
         },
         price: {
@@ -31,9 +31,9 @@ function parseFieldStatus(audit: any, listing: any, master: any): ProductAudit['
             status: details.low_price ? 'rejected' : 'approved',
             details: details.low_price
                 ? (details.unit_price_info?.is_pack
-                    ? `Unit Price $${details.unit_price_info.unit_price?.toLocaleString('es-AR')} is below benchmark $${details.low_price.min_allowed?.toLocaleString('es-AR')}`
-                    : `Price $${listing?.price?.toLocaleString('es-AR')} is below minimum benchmark $${details.low_price.min_allowed?.toLocaleString('es-AR')}`)
-                : (details.unit_price_info?.is_pack ? `Unit Price: $${details.unit_price_info.unit_price?.toLocaleString('es-AR')}` : undefined),
+                    ? `Precio Unitario $${details.unit_price_info.unit_price?.toLocaleString('es-AR')} está por debajo de la referencia $${details.low_price.min_allowed?.toLocaleString('es-AR')}`
+                    : `Precio $${listing?.price?.toLocaleString('es-AR')} está por debajo de la referencia mínima $${details.low_price.min_allowed?.toLocaleString('es-AR')}`)
+                : (details.unit_price_info?.is_pack ? `Precio Unitario: $${details.unit_price_info.unit_price?.toLocaleString('es-AR')}` : undefined),
             score_impact: details.low_price ? 100 : 0,
             unit_price: details.unit_price_info?.unit_price,
             qty_multiplier: details.unit_price_info?.detected_qty,
@@ -42,13 +42,13 @@ function parseFieldStatus(audit: any, listing: any, master: any): ProductAudit['
         volume: {
             scraped: details.volumetric_info?.detected_total_kg ?? (typeof details.volumetric_mismatch?.detected_in_listing === 'number' ? details.volumetric_mismatch.detected_in_listing : (typeof details.detected_volume === 'number' ? details.detected_volume : 0))
                 ? `${details.volumetric_info?.detected_total_kg || details.volumetric_mismatch?.detected_in_listing || details.detected_volume} kg`
-                : 'Not detected',
+                : 'No detectado',
             master: (details.volumetric_info?.expected_total_kg || details.volumetric_mismatch?.expected_kg || master?.fc_net)
                 ? `${details.volumetric_info?.expected_total_kg || details.volumetric_mismatch?.expected_kg || master?.fc_net} kg`
                 : 'N/A',
             status: details.volumetric_mismatch ? 'rejected' : 'approved',
             details: details.volumetric_mismatch
-                ? `Volume mismatch detected (Expected ${details.volumetric_info?.expected_total_kg || details.volumetric_mismatch?.expected_kg || master?.fc_net}kg)`
+                ? `Discrepancia de volumen detectada (Esperado ${details.volumetric_info?.expected_total_kg || details.volumetric_mismatch?.expected_kg || master?.fc_net}kg)`
                 : undefined,
             score_impact: details.volumetric_mismatch ? 100 : 0,
             unit_weight: details.volumetric_info?.unit_weight,
@@ -57,32 +57,32 @@ function parseFieldStatus(audit: any, listing: any, master: any): ProductAudit['
         },
         quantity: {
             scraped: (details.detected_qty || details.volumetric_info?.detected_qty || details.combo_mismatch?.listing)
-                ? `${details.detected_qty || details.volumetric_info?.detected_qty || details.combo_mismatch.listing} units`
-                : '1 unit',
+                ? `${details.detected_qty || details.volumetric_info?.detected_qty || details.combo_mismatch.listing} unidades`
+                : '1 unidad',
             master: (master?.units_per_pack || details.combo_mismatch?.master || 1)
-                ? `${master?.units_per_pack || details.combo_mismatch?.master || 1} units`
-                : '1 unit',
+                ? `${master?.units_per_pack || details.combo_mismatch?.master || 1} unidades`
+                : '1 unidad',
             status: details.combo_mismatch ? 'rejected' : 'approved',
             details: details.combo_mismatch
-                ? `Expected ${details.combo_mismatch.master} units, found ${details.combo_mismatch.listing}`
+                ? `Esperado ${details.combo_mismatch.master} unidades, encontrado ${details.combo_mismatch.listing}`
                 : undefined,
             score_impact: details.combo_mismatch ? 20 : 0
         },
         discount: {
-            scraped: details.unauthorized_discount ? 'Yes (unauthorized)' : 'No',
-            master: details.unauthorized_discount ? 'Not allowed' : 'Allowed',
+            scraped: details.unauthorized_discount ? 'Sí (no autorizado)' : 'No',
+            master: details.unauthorized_discount ? 'No permitido' : 'Permitido',
             status: details.unauthorized_discount ? 'rejected' : 'approved',
             details: details.unauthorized_discount
-                ? 'This product should never have a discount'
+                ? 'Este producto nunca debería tener descuento'
                 : undefined,
             score_impact: details.unauthorized_discount ? 60 : 0
         },
         publishable: {
-            scraped: listing?.status_publicacion || 'Active',
-            master: details.restricted_sku_violation ? 'Not publishable' : 'Publishable',
+            scraped: listing?.status_publicacion || 'Activa',
+            master: details.restricted_sku_violation ? 'No publicable' : 'Publicable',
             status: details.restricted_sku_violation ? 'rejected' : 'approved',
             details: details.restricted_sku_violation
-                ? 'This SKU should not be published on marketplace'
+                ? 'Este SKU no debe publicarse en el marketplace'
                 : undefined,
             score_impact: details.restricted_sku_violation ? 100 : 0
         }
@@ -118,7 +118,7 @@ export const useBrandData = () => {
                 isRunning: !!data.pipeline_running
             });
         } catch (err) {
-            console.warn('Local API Bridge not reachable');
+            console.warn('API Bridge local no alcanzable');
         }
     }, []);
 
@@ -127,7 +127,7 @@ export const useBrandData = () => {
             await fetch('http://localhost:8000/pipeline/run', { method: 'POST' });
             fetchEnrichmentStats();
         } catch (err) {
-            alert('Error starting pipeline. Is api_bridge.py running?');
+            alert('Error iniciando pipeline. ¿Está corriendo api_bridge.py?');
         }
     };
 
@@ -136,14 +136,14 @@ export const useBrandData = () => {
             await fetch('http://localhost:8000/audit/refresh', { method: 'POST' });
             setTimeout(fetchData, 2000); // Give it a moment to start
         } catch (err) {
-            alert('Error refreshing scores. Is api_bridge.py running?');
+            alert('Error actualizando puntajes. ¿Está corriendo api_bridge.py?');
         }
     };
 
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            // Fetch compliance data with pagination (bypassing 1000 row limit)
+            // Obtener datos de cumplimiento con paginación (evitando límite de 1000 filas)
             let allAuditData: any[] = [];
             let offset = 0;
             const batchSize = 1000;
@@ -167,7 +167,7 @@ export const useBrandData = () => {
                 offset += batchSize;
             }
 
-            // Stats counts (using count: 'exact' is safer as it bypasses row limits)
+            // Conteos de estadísticas (usando count: 'exact' es más seguro y evita límites)
             const { count: listingCount } = await supabase.from('meli_listings').select('*', { count: 'exact', head: true });
             const { count: highRiskCount } = await supabase.from('compliance_audit').select('*', { count: 'exact', head: true }).eq('risk_level', 'Alto');
             const { count: mediumRiskCount } = await supabase.from('compliance_audit').select('*', { count: 'exact', head: true }).eq('risk_level', 'Medio');
@@ -177,8 +177,8 @@ export const useBrandData = () => {
                 const fetchedProducts: ProductAudit[] = allAuditData.map((a: any) => ({
                     id: a.id,
                     meli_id: a.meli_listings?.meli_id || 'N/A',
-                    title: a.meli_listings?.title || 'Unknown Listing',
-                    seller: a.meli_listings?.seller_name || 'Unknown Seller',
+                    title: a.meli_listings?.title || 'Publicación Desconocida',
+                    seller: a.meli_listings?.seller_name || 'Vendedor Desconocido',
                     seller_location: a.meli_listings?.seller_location || 'N/A',
                     price: a.meli_listings?.price || 0,
                     thumbnail: a.meli_listings?.thumbnail,
@@ -207,7 +207,7 @@ export const useBrandData = () => {
 
             await fetchEnrichmentStats();
         } catch (err) {
-            console.error('Fetch error:', err);
+            console.error('Error de fetch:', err);
         } finally {
             setLoading(false);
         }
@@ -215,7 +215,7 @@ export const useBrandData = () => {
 
     useEffect(() => {
         fetchData();
-        // Poll enrichment status every 5s if running
+        // Consultar estado de enriquecimiento cada 5s si está corriendo
         const interval = setInterval(() => {
             fetchEnrichmentStats();
         }, 5000);
@@ -224,7 +224,7 @@ export const useBrandData = () => {
 
     const discardProduct = async (meliId: string) => {
         try {
-            // Update Supabase
+            // Actualizar Supabase
             const { error } = await supabase
                 .from('meli_listings')
                 .update({ item_status: 'noise_manual' })
@@ -232,20 +232,20 @@ export const useBrandData = () => {
 
             if (error) throw error;
 
-            // Update local state immediately for snappy UI
+            // Actualizar estado local inmediatamente para UI responsiva
             setProducts(prev => prev.filter(p => p.meli_id !== meliId));
             
-            // Re-fetch stats to be accurate
+            // Refrescar estadísticas para mayor precisión
             fetchEnrichmentStats();
         } catch (err) {
-            console.error('Error discarding product:', err);
-            alert('Failed to discard product');
+            console.error('Error descartando producto:', err);
+            alert('Fallo al descartar producto');
         }
     };
 
     const restoreProduct = async (meliId: string) => {
         try {
-            // Update Supabase
+            // Actualizar Supabase
             const { error } = await supabase
                 .from('meli_listings')
                 .update({ item_status: 'active' })
@@ -253,11 +253,11 @@ export const useBrandData = () => {
 
             if (error) throw error;
 
-            // Re-fetch data to refresh everything properly
+            // Refrescar datos para actualizar apropiadamente
             fetchData();
         } catch (err) {
-            console.error('Error restoring product:', err);
-            alert('Failed to restore product');
+            console.error('Error restaurando producto:', err);
+            alert('Fallo al restaurar producto');
         }
     };
 

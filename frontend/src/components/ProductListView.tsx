@@ -19,7 +19,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
     const [sortBy, setSortBy] = useState<'fraud_score' | 'price' | 'match_level' | 'brand'>('fraud_score');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-    // Filtering logic
+    // Lógica de filtrado
     const filteredProducts = products.filter(p => {
         if (riskFilter !== 'ALL' && p.risk_level !== riskFilter) return false;
         if (matchFilter !== 'ALL') {
@@ -31,7 +31,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
         return true;
     });
 
-    // Sorting logic
+    // Lógica de ordenamiento
     const sortedProducts = [...filteredProducts].sort((a, b) => {
         let aVal: any;
         let bVal: any;
@@ -62,7 +62,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
     };
 
     const getMatchBadge = (level: number) => {
-        const levels = ['Unidentified', 'EAN', 'Fuzzy', 'Suspicious'];
+        const levels = ['No Ident.', 'EAN', 'Difuso', 'Sospechoso'];
         const colors = ['bg-slate-600/20 text-slate-400', 'bg-emerald-600/20 text-emerald-400', 'bg-blue-600/20 text-blue-400', 'bg-amber-600/20 text-amber-400'];
         return (
             <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${colors[level]}`}>
@@ -78,20 +78,20 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
             return `https://articulo.mercadolibre.com.ar/MLA-${cleanId}`;
         }
         
-        // 2. Fallback: Extract ID from any URL string (useful if tracking URL is present but meli_id is N/A)
+        // 2. Respaldo: Extraer ID de cualquier string de URL (útil si hay URL de tracking)
         const idMatch = product.url.match(/MLA-?(\d+)/);
         if (idMatch) {
             return `https://articulo.mercadolibre.com.ar/MLA-${idMatch[1]}`;
         }
         
-        // 3. Absolute fallback
+        // 3. Respaldo absoluto
         return product.url;
     };
 
     const getStatusBadge = (status?: string) => {
-        if (!status || status === 'active') return <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-tighter">● Active</span>;
-        if (status === 'paused') return <span className="text-[10px] text-amber-500 font-bold uppercase tracking-tighter">● Paused</span>;
-        if (status === 'closed') return <span className="text-[10px] text-red-500 font-bold uppercase tracking-tighter">● Closed</span>;
+        if (!status || status === 'active') return <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-tighter">● Activo</span>;
+        if (status === 'paused') return <span className="text-[10px] text-amber-500 font-bold uppercase tracking-tighter">● Pausado</span>;
+        if (status === 'closed') return <span className="text-[10px] text-red-500 font-bold uppercase tracking-tighter">● Cerrado</span>;
         return <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">● {status}</span>;
     };
 
@@ -106,7 +106,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
 
     return (
         <div className="space-y-6">
-            {/* Filters */}
+            {/* Filtros */}
             <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-slate-900/40 border border-white/5 rounded-2xl p-4">
                 <div className="flex flex-wrap gap-3">
                     <select
@@ -114,7 +114,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                         onChange={(e) => setRiskFilter(e.target.value as RiskFilter)}
                         className="px-4 py-2 bg-slate-800 border border-white/10 rounded-xl text-sm font-bold text-slate-300 focus:outline-none focus:border-brand-500/50"
                     >
-                        <option value="ALL">All Risks</option>
+                        <option value="ALL">Todos los Riesgos</option>
                         <option value="Alto">Alto</option>
                         <option value="Medio">Medio</option>
                         <option value="Bajo">Bajo</option>
@@ -125,29 +125,29 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                         onChange={(e) => setMatchFilter(e.target.value as MatchFilter)}
                         className="px-4 py-2 bg-slate-800 border border-white/10 rounded-xl text-sm font-bold text-slate-300 focus:outline-none focus:border-brand-500/50"
                     >
-                        <option value="ALL">All Matches</option>
-                        <option value="EAN">EAN Match</option>
-                        <option value="Fuzzy">Fuzzy Match</option>
-                        <option value="Suspicious">Suspicious</option>
-                        <option value="Unidentified">Unidentified</option>
+                        <option value="ALL">Todas las Coincid.</option>
+                        <option value="EAN">Coincidencia EAN</option>
+                        <option value="Fuzzy">Coincidencia Difusa</option>
+                        <option value="Suspicious">Sospechoso</option>
+                        <option value="Unidentified">No Identificado</option>
                     </select>
                 </div>
 
                 <input
                     type="text"
-                    placeholder="Search by title or seller..."
+                    placeholder="Buscar por producto o vendedor..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="flex-1 md:max-w-md px-4 py-2 bg-slate-800 border border-white/10 rounded-xl text-sm text-slate-300 placeholder-slate-500 focus:outline-none focus:border-brand-500/50"
                 />
             </div>
 
-            {/* Results Count */}
+            {/* Contador de Resultados */}
             <div className="text-sm text-slate-400 font-medium">
-                Showing <span className="text-brand-400 font-bold">{sortedProducts.length}</span> of <span className="text-white font-bold">{products.length}</span> products
+                Mostrando <span className="text-brand-400 font-bold">{sortedProducts.length}</span> de <span className="text-white font-bold">{products.length}</span> productos
             </div>
 
-            {/* Product Table */}
+            {/* Tabla de Productos */}
             {loading ? (
                 <div className="space-y-3">
                     {[1, 2, 3, 4, 5].map(i => (
@@ -156,51 +156,51 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                 </div>
             ) : sortedProducts.length === 0 ? (
                 <div className="h-64 flex items-center justify-center bg-slate-900/20 rounded-2xl border border-dashed border-white/5">
-                    <p className="text-slate-500 font-medium">No products match your filters</p>
+                    <p className="text-slate-500 font-medium">No hay productos que coincidan con los filtros</p>
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {/* Table Header */}
+                    {/* Encabezado de Tabla */}
                     <div className="hidden md:grid grid-cols-[80px_1fr_150px_200px_120px_100px_80px_100px_120px] gap-4 px-4 py-2 text-[10px] uppercase tracking-wider font-black text-slate-500">
                         <div></div>
-                        <div>Product</div>
+                        <div>Producto</div>
                         <div
                             className="cursor-pointer hover:text-brand-400 transition-colors flex items-center gap-1"
                             onClick={() => toggleSort('brand')}
                         >
-                            Brand {sortBy === 'brand' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+                            Marca {sortBy === 'brand' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
                         </div>
-                        <div>Seller</div>
+                        <div>Vendedor</div>
                         <div
                             className="cursor-pointer hover:text-brand-400 transition-colors flex items-center gap-1"
                             onClick={() => toggleSort('price')}
                         >
-                            Price {sortBy === 'price' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+                            Precio {sortBy === 'price' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
                         </div>
                         <div
                             className="cursor-pointer hover:text-brand-400 transition-colors flex items-center gap-1"
                             onClick={() => toggleSort('match_level')}
                         >
-                            Match {sortBy === 'match_level' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+                            Coincid. {sortBy === 'match_level' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
                         </div>
                         <div>Stock</div>
                         <div
                             className="cursor-pointer hover:text-brand-400 transition-colors flex items-center gap-1"
                             onClick={() => toggleSort('fraud_score')}
                         >
-                            Score {sortBy === 'fraud_score' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+                            Puntaje {sortBy === 'fraud_score' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
                         </div>
-                        <div>Risk</div>
+                        <div>Riesgo</div>
                     </div>
 
-                    {/* Product Rows */}
+                    {/* Filas de Productos */}
                     {sortedProducts.map(product => (
                         <div
                             key={product.id}
                             onClick={() => setSelectedProduct(product)}
                             className="grid grid-cols-1 md:grid-cols-[80px_1fr_150px_200px_120px_100px_80px_100px_120px] gap-4 items-center p-4 bg-slate-900/40 hover:bg-slate-900/60 border border-white/5 hover:border-brand-500/30 rounded-2xl cursor-pointer transition-all group"
                         >
-                            {/* Thumbnail */}
+                            {/* Miniatura */}
                             <div className="hidden md:block">
                                 {product.thumbnail ? (
                                     <img src={product.thumbnail} alt={product.title} className="w-16 h-16 rounded-xl object-cover border border-white/10" />
@@ -209,7 +209,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                                 )}
                             </div>
 
-                            {/* Title */}
+                            {/* Título */}
                             <div className="flex flex-col">
                                 <span className="text-sm font-bold text-white group-hover:text-brand-400 transition-colors line-clamp-2">{product.title}</span>
                                 <div className="flex items-center gap-2 mt-1">
@@ -227,26 +227,26 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                                 </div>
                             </div>
 
-                            {/* Matched Brand */}
+                            {/* Marca Coincidente */}
                             <div className="flex flex-col">
-                                <span className="text-[10px] uppercase font-bold text-slate-500 mb-1">Brand</span>
+                                <span className="text-[10px] uppercase font-bold text-slate-500 mb-1">Marca</span>
                                 <span className={`text-sm font-bold ${product.master_product?.brand ? 'text-brand-300' : 'text-slate-600'}`}>
                                     {product.master_product?.brand || 'Identificando...'}
                                 </span>
                             </div>
 
-                            {/* Seller */}
+                            {/* Vendedor */}
                             <div className="flex flex-col">
                                 <span className="text-sm text-slate-300">{product.seller}</span>
                                 <span className="text-xs text-slate-500">{product.seller_location}</span>
                             </div>
 
-                            {/* Price */}
+                            {/* Precio */}
                             <div className="text-sm font-bold text-emerald-400">
                                 ${product.price.toLocaleString('es-AR')}
                             </div>
 
-                            {/* Match Level */}
+                            {/* Nivel de Coincidencia */}
                             <div>
                                 {getMatchBadge(product.match_level)}
                             </div>
@@ -262,7 +262,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                                 </div>
                             </div>
 
-                            {/* Fraud Score */}
+                            {/* Puntaje de Fraude */}
                             <div className="flex items-center gap-2">
                                 <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
                                     <div
@@ -273,7 +273,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                                 <span className="text-xs font-bold text-slate-400">{product.fraud_score}</span>
                             </div>
 
-                            {/* Risk Level */}
+                            {/* Nivel de Riesgo */}
                              <div className="flex items-center justify-end gap-3 px-2">
                                  {getRiskBadge(product.risk_level)}
                                  <div className="flex items-center gap-2">
@@ -314,7 +314,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                 </div>
             )}
 
-            {/* Detail Modal */}
+            {/* Modal de Detalles */}
             {selectedProduct && (
                 <ProductDetailPanel
                     product={selectedProduct}

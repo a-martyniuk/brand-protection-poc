@@ -28,9 +28,9 @@ const FieldComparisonRow: React.FC<FieldComparisonRowProps> = ({ fieldName, fiel
             case 'approved':
                 return <span className={`${baseClasses} bg-emerald-500/10 text-emerald-400 border border-emerald-500/30`}>✓ OK</span>;
             case 'rejected':
-                return <span className={`${baseClasses} bg-red-500/10 text-red-400 border border-red-500/30`}>✗ Rejected</span>;
+                return <span className={`${baseClasses} bg-red-500/10 text-red-400 border border-red-500/30`}>✗ Rechazado</span>;
             case 'warning':
-                return <span className={`${baseClasses} bg-amber-500/10 text-amber-400 border border-amber-500/30`}>⚠ Warning</span>;
+                return <span className={`${baseClasses} bg-amber-500/10 text-amber-400 border border-amber-500/30`}>⚠ Advertencia</span>;
             case 'n/a':
             default:
                 return <span className={`${baseClasses} bg-slate-500/10 text-slate-500 border border-slate-500/30`}>- N/A</span>;
@@ -52,31 +52,31 @@ const FieldComparisonRow: React.FC<FieldComparisonRowProps> = ({ fieldName, fiel
 
     return (
         <div className={`grid grid-cols-[140px_1fr_1fr_140px] gap-4 items-center p-4 rounded-xl border border-white/5 transition-all ${getRowBgClass()}`}>
-            {/* Field Name */}
+            {/* Nombre del Campo */}
             <div className="flex items-center gap-2">
                 {getStatusIcon()}
                 <span className="font-bold text-sm text-slate-300">{fieldName}</span>
             </div>
 
-            {/* Scraped Value */}
+            {/* Valor Extraído */}
             <div className="flex flex-col">
-                <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Scraped</span>
+                <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Extraído</span>
                 <span className="text-sm text-white font-medium">{field.scraped}</span>
                 {field.unit_price && (
                     <span className="text-[10px] text-brand-400 font-bold mt-1">
-                        (Unit: ${field.unit_price.toLocaleString('es-AR')})
+                        (Unidad: ${field.unit_price.toLocaleString('es-AR')})
                     </span>
                 )}
                 {field.unit_weight && (
                     <span className="text-[10px] text-brand-400 font-bold mt-1">
-                        (Unit: {field.unit_weight < 1 ? `${field.unit_weight * 1000}g` : `${field.unit_weight}kg`})
+                        (Unidad: {field.unit_weight < 1 ? `${field.unit_weight * 1000}g` : `${field.unit_weight}kg`})
                     </span>
                 )}
             </div>
 
-            {/* Master Value */}
+            {/* Valor Maestro */}
             <div className="flex flex-col">
-                <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Master Benchmark</span>
+                <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Referencia Maestra</span>
                 <span className="text-sm text-brand-400 font-medium">{field.master}</span>
                 {field.qty_multiplier && field.qty_multiplier > 1 && field.master_unit_value && (
                     <span className="text-[10px] text-slate-400 font-medium mt-1 italic">
@@ -88,7 +88,7 @@ const FieldComparisonRow: React.FC<FieldComparisonRowProps> = ({ fieldName, fiel
                 )}
             </div>
 
-            {/* Status Badge */}
+            {/* Estado */}
             <div className="flex flex-col items-end gap-1">
                 {getStatusBadge()}
                 {field.score_impact && field.score_impact > 0 && (
@@ -96,7 +96,7 @@ const FieldComparisonRow: React.FC<FieldComparisonRowProps> = ({ fieldName, fiel
                 )}
             </div>
 
-            {/* Details (if any) */}
+            {/* Detalles (si los hay) */}
             {field.details && (
                 <div className="col-span-4 mt-2 pt-3 border-t border-white/5">
                     <p className="text-xs text-slate-400 italic">{field.details}</p>
