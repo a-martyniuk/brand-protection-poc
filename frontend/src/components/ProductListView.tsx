@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, ExternalLink, Trash2, RotateCcw } from 'lucide-react';
-import { ProductAudit, RiskFilter, MatchFilter } from '../types';
+import { ProductAudit, MatchFilter } from '../types';
 import ProductDetailPanel from './ProductDetailPanel';
 
 interface ProductListViewProps {
@@ -13,15 +13,13 @@ interface ProductListViewProps {
 
 const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, onDiscard, onRestore, viewMode = 'ACTIVE' }) => {
     const [selectedProduct, setSelectedProduct] = useState<ProductAudit | null>(null);
-    const [riskFilter, setRiskFilter] = useState<RiskFilter>('ALL');
     const [matchFilter, setMatchFilter] = useState<MatchFilter>('ALL');
     const [searchQuery, setSearchQuery] = useState('');
-    const [sortBy, setSortBy] = useState<'fraud_score' | 'price' | 'match_level' | 'brand'>('fraud_score');
-    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+    const [sortBy, setSortBy] = useState<'price' | 'match_level' | 'brand'>('match_level');
+    const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
     // Lógica de filtrado
     const filteredProducts = products.filter(p => {
-        if (riskFilter !== 'ALL' && p.risk_level !== riskFilter) return false;
         if (matchFilter !== 'ALL') {
             const matchLevels = { 'Unidentified': 0, 'EAN': 1, 'Fuzzy': 2, 'Suspicious': 3 };
             if (p.match_level !== matchLevels[matchFilter as keyof typeof matchLevels]) return false;
@@ -40,26 +38,15 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
             aVal = a.master_product?.brand || 'Unidentified';
             bVal = b.master_product?.brand || 'Unidentified';
         } else {
-            aVal = a[sortBy as keyof ProductAudit];
-            bVal = b[sortBy as keyof ProductAudit];
+            // @ts-ignore
+            aVal = a[sortBy];
+            // @ts-ignore
+            bVal = b[sortBy];
         }
 
         if (aVal === bVal) return 0;
         return sortOrder === 'asc' ? (aVal > bVal ? 1 : -1) : (aVal < bVal ? 1 : -1);
     });
-
-    const getRiskBadge = (risk: string) => {
-        const colors = {
-            'Alto': 'bg-red-500/20 text-red-400 border-red-500/40',
-            'Medio': 'bg-amber-500/20 text-amber-400 border-amber-500/40',
-            'Bajo': 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
-        };
-        return (
-            <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${colors[risk as keyof typeof colors]}`}>
-                {risk}
-            </span>
-        );
-    };
 
     const getMatchBadge = (level: number) => {
         const levels = ['No Ident.', 'Directo', 'Alta Similitud', 'Por Búsqueda'];
@@ -72,19 +59,14 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
     };
 
     const getResilientUrl = (product: ProductAudit) => {
-        // 1. Prioritize building from specific meli_id
         if (product.meli_id && product.meli_id !== 'N/A') {
             const cleanId = product.meli_id.replace(/\D/g, '');
             return `https://articulo.mercadolibre.com.ar/MLA-${cleanId}`;
         }
-        
-        // 2. Respaldo: Extraer ID de cualquier string de URL (útil si hay URL de tracking)
         const idMatch = product.url.match(/MLA-?(\d+)/);
         if (idMatch) {
             return `https://articulo.mercadolibre.com.ar/MLA-${idMatch[1]}`;
         }
-        
-        // 3. Respaldo absoluto
         return product.url;
     };
 
@@ -95,7 +77,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
         return <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">● {status}</span>;
     };
 
-    const toggleSort = (field: 'fraud_score' | 'price' | 'match_level' | 'brand') => {
+    const toggleSort = (field: 'price' | 'match_level' | 'brand') => {
         if (sortBy === field) {
             setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
         } else {
@@ -109,8 +91,6 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
             {/* Filtros */}
             <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-slate-900/40 border border-white/5 rounded-2xl p-4">
                 <div className="flex flex-wrap gap-3">
-
-
                     <select
                         value={matchFilter}
                         onChange={(e) => setMatchFilter(e.target.value as MatchFilter)}
@@ -186,8 +166,6 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                             onClick={() => setSelectedProduct(product)}
                             className="grid grid-cols-1 md:grid-cols-[80px_1fr_120px_150px_200px_120px_100px_80px_100px] gap-4 items-center p-4 bg-slate-900/40 hover:bg-slate-900/60 border border-white/5 hover:border-brand-500/30 rounded-2xl cursor-pointer transition-all group"
                         >
-                            {/* ... (miniature, title, keyword, brand, seller, price, match, stock sections remain same) ... */}
-                            {/* [OMITTED FOR CONCiseness IN TARGET CONTENT, but I will replace the whole div content below] */}
                             {/* Miniatura */}
                             <div className="hidden md:block">
                                 {product.thumbnail ? (
@@ -199,7 +177,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
 
                             {/* Título */}
                             <div className="flex flex-col">
-                                <span className="text-sm font-bold text-white group-hover:text-brand-400 transition-colors line-clamp-2">{product.title}</span>
+                                <span className="text-sm font-bold text-white group-hover:text-brand-400 transition-colors">{product.title}</span>
                                 <div className="flex items-center gap-2 mt-1">
                                     <span className="text-xs text-slate-500">ID: {product.meli_id}</span>
                                     <a
@@ -225,7 +203,6 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
 
                             {/* Marca Coincidente */}
                             <div className="flex flex-col">
-                                <span className="text-[10px] uppercase font-bold text-slate-500 mb-1">Marca</span>
                                 <span className={`text-sm font-bold ${product.master_product?.brand ? 'text-brand-300' : 'text-slate-600'}`}>
                                     {product.master_product?.brand || 'Identificando...'}
                                 </span>
@@ -233,8 +210,16 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
 
                             {/* Vendedor */}
                             <div className="flex flex-col">
-                                <span className="text-sm text-slate-300">{product.seller}</span>
-                                <span className="text-xs text-slate-500">{product.seller_location}</span>
+                                {product.seller && product.seller !== 'N/A' && product.seller !== 'Vendedor Desconocido' ? (
+                                    <>
+                                        <span className="text-sm text-slate-300">{product.seller}</span>
+                                        {product.seller_location && product.seller_location !== 'N/A' && (
+                                            <span className="text-xs text-slate-500">{product.seller_location}</span>
+                                        )}
+                                    </>
+                                ) : (
+                                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-tighter/50 italic">Sin datos</span>
+                                )}
                             </div>
 
                             {/* Precio */}

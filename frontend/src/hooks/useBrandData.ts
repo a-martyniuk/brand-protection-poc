@@ -165,11 +165,11 @@ export const useBrandData = () => {
                 offset += batchSize;
             }
 
-            // Conteos de estadísticas (usando count: 'exact' es más seguro y evita límites)
+            // Conteos de estadísticas orientados a Identificación
             const { count: listingCount } = await supabase.from('meli_listings').select('*', { count: 'exact', head: true });
-            const { count: highRiskCount } = await supabase.from('compliance_audit').select('*', { count: 'exact', head: true }).eq('risk_level', 'Alto');
-            const { count: mediumRiskCount } = await supabase.from('compliance_audit').select('*', { count: 'exact', head: true }).eq('risk_level', 'Medio');
-            const { count: lowRiskCount } = await supabase.from('compliance_audit').select('*', { count: 'exact', head: true }).eq('risk_level', 'Bajo');
+            const { count: identifiedCount } = await supabase.from('compliance_audit').select('*', { count: 'exact', head: true }).gt('match_level', 0);
+            const { count: unidentifiedCount } = await supabase.from('compliance_audit').select('*', { count: 'exact', head: true }).eq('match_level', 0);
+            const { count: noiseCount } = await supabase.from('meli_listings').select('*', { count: 'exact', head: true }).like('item_status', 'noise%');
 
             if (allAuditData) {
                 const fetchedProducts: ProductAudit[] = allAuditData.map((a: any) => ({
@@ -196,11 +196,11 @@ export const useBrandData = () => {
 
             setStats({
                 scanned: listingCount || 0,
-                active: 0,
-                cleaned: 0,
-                high_risk: highRiskCount || 0,
-                medium_risk: mediumRiskCount || 0,
-                low_risk: lowRiskCount || 0,
+                active: identifiedCount || 0, // Usamos 'active' para Identificados
+                cleaned: unidentifiedCount || 0, // Usamos 'cleaned' para No Identificados
+                high_risk: 0,
+                medium_risk: 0,
+                low_risk: noiseCount || 0, // Usamos 'low_risk' para Ruido
                 last_audit: allAuditData?.[0]?.processed_at
             });
 

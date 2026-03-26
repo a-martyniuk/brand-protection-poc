@@ -6,7 +6,7 @@ import StatCard from './StatCard';
 import ProductListView from './ProductListView';
 
 const BrandDashboard: React.FC = () => {
-    const { products, stats, enrichmentStats, loading, fetchData, runPipeline, refreshScores, discardProduct, restoreProduct } = useBrandData();
+    const { products, stats, enrichmentStats, loading, fetchData, refreshScores, discardProduct, restoreProduct } = useBrandData();
     const [activeTab, setActiveTab] = useState<'products' | 'noise'>('products');
 
     const handleExport = () => {
@@ -61,7 +61,7 @@ const BrandDashboard: React.FC = () => {
                         >
                             <Shield className="w-3.5 h-3.5" />
                             <span className="text-xs font-bold uppercase tracking-wider">
-                                Actualizar Puntajes
+                                Refrescar Auditoría
                             </span>
                         </button>
 
@@ -101,7 +101,7 @@ const BrandDashboard: React.FC = () => {
                                 : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
                                 }`}
                         >
-                            Auditoría de Productos
+                            Productos
                         </button>
                         <button
                             onClick={() => setActiveTab('noise')}
@@ -116,58 +116,57 @@ const BrandDashboard: React.FC = () => {
                 </header>
 
                 {/* Cuadrícula de Estadísticas */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                            <StatCard
-                                title="Total Escaneado"
-                                value={stats.scanned.toLocaleString()}
-                                label="Productos en monitoreo"
-                                icon={<Search className="text-blue-400" />}
-                            />
-                            <StatCard
-                                title="Riesgo Alto"
-                                value={stats.high_risk.toString()}
-                                label="Puntaje de fraude > 60"
-                                variant="warning"
-                                icon={<AlertTriangle className="text-red-400" />}
-                            />
-                            <StatCard
-                                title="Riesgo Medio"
-                                value={stats.medium_risk.toString()}
-                                label="Puntaje de fraude 30-60"
-                                icon={<TrendingUp className="text-amber-400" />}
-                            />
-                            <StatCard
-                                title="Riesgo Bajo"
-                                value={stats.low_risk.toString()}
-                                label="Puntaje de fraude < 30"
-                                variant="success"
-                                icon={<CheckCircle2 className="text-emerald-400" />}
-                            />
-                        </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <StatCard
+                        title="Total Escaneado"
+                        value={stats.scanned.toLocaleString()}
+                        label="Productos en monitoreo"
+                        icon={<Search className="text-blue-400" />}
+                    />
+                    <StatCard
+                        title="Identificados"
+                        value={stats.active.toString()}
+                        label="Match con Producto Maestro"
+                        variant="success"
+                        icon={<CheckCircle2 className="text-emerald-400" />}
+                    />
+                    <StatCard
+                        title="Sin Identificar"
+                        value={stats.cleaned.toString()}
+                        label="No coinciden con Maestro"
+                        icon={<AlertTriangle className="text-slate-400" />}
+                    />
+                    <StatCard
+                        title="Filtrados (Ruido)"
+                        value={stats.low_risk.toString()}
+                        label="Marcados como ruido/otros"
+                        icon={<TrendingUp className="text-amber-400" />}
+                    />
+                </div>
 
-                        {/* Lista de Productos */}
-                        <div className="space-y-6">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-brand-500/10 rounded-lg">
-                                    <Shield className="w-5 h-5 text-brand-500" />
-                                </div>
-                                <h2 className="text-xl font-black text-white tracking-tight">
-                                    {activeTab === 'noise' ? 'Ruido y Descartados' : 'Auditoría de Cumplimiento'}
-                                </h2>
-                            </div>
-
-                            <ProductListView 
-                                products={
-                                    activeTab === 'noise' 
-                                        ? products.filter(p => p.item_status === 'noise' || p.item_status === 'noise_manual')
-                                        : products.filter(p => p.item_status !== 'noise' && p.item_status !== 'noise_manual')
-                                } 
-                                loading={loading} 
-                                onDiscard={discardProduct}
-                                onRestore={restoreProduct}
-                                viewMode={activeTab === 'noise' ? 'NOISE' : 'ACTIVE'}
-                            />
+                {/* Lista de Productos */}
+                <div className="space-y-6">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-brand-500/10 rounded-lg">
+                            <Shield className="w-5 h-5 text-brand-500" />
                         </div>
+                        <h2 className="text-xl font-black text-white tracking-tight">
+                            {activeTab === 'noise' ? 'Ruido y Descartados' : 'Listado de Productos'}
+                        </h2>
+                    </div>
+
+                    <ProductListView 
+                        products={
+                            activeTab === 'noise' 
+                                ? products.filter(p => p.item_status === 'noise' || p.item_status === 'noise_manual')
+                                : products.filter(p => p.item_status !== 'noise' && p.item_status !== 'noise_manual')
+                        } 
+                        loading={loading} 
+                        onDiscard={discardProduct}
+                        onRestore={restoreProduct}
+                        viewMode={activeTab === 'noise' ? 'NOISE' : 'ACTIVE'}
+                    />
+                </div>
             </main>
 
             <footer className="max-w-7xl mx-auto px-8 py-12 border-t border-white/5 opacity-50">
