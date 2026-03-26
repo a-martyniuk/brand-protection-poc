@@ -62,7 +62,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
     };
 
     const getMatchBadge = (level: number) => {
-        const levels = ['No Ident.', 'EAN', 'Difuso', 'Sospechoso'];
+        const levels = ['No Ident.', 'Directo', 'Alta Similitud', 'Por Búsqueda'];
         const colors = ['bg-slate-600/20 text-slate-400', 'bg-emerald-600/20 text-emerald-400', 'bg-blue-600/20 text-blue-400', 'bg-amber-600/20 text-amber-400'];
         return (
             <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${colors[level]}`}>
@@ -126,9 +126,9 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                         className="px-4 py-2 bg-slate-800 border border-white/10 rounded-xl text-sm font-bold text-slate-300 focus:outline-none focus:border-brand-500/50"
                     >
                         <option value="ALL">Todas las Coincid.</option>
-                        <option value="EAN">Coincidencia EAN</option>
-                        <option value="Fuzzy">Coincidencia Difusa</option>
-                        <option value="Suspicious">Sospechoso</option>
+                        <option value="EAN">Match Directo</option>
+                        <option value="Fuzzy">Alta Similitud</option>
+                        <option value="Suspicious">Por Búsqueda</option>
                         <option value="Unidentified">No Identificado</option>
                     </select>
                 </div>

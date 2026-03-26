@@ -10,7 +10,7 @@ interface ProductDetailPanelProps {
 
 const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({ product, onClose }) => {
     const getMatchLevelBadge = () => {
-        const levels = ['No Identificado', 'Coincidencia EAN', 'Coincidencia Difusa', 'Sospechoso'];
+        const levels = ['No Identificado', 'Match Directo', 'Alta Similitud', 'Por Búsqueda'];
         const colors = ['bg-slate-600', 'bg-emerald-600', 'bg-blue-600', 'bg-amber-600'];
         return (
             <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${colors[product.match_level]} text-white`}>
@@ -94,11 +94,12 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({ product, onClos
                     {product.master_product && (
                         <div className="mb-6 p-4 bg-brand-500/5 border border-brand-500/20 rounded-2xl">
                             <h3 className="text-sm font-black uppercase tracking-wider text-brand-400 mb-2">Producto Maestro Coincidente</h3>
-                            <p className="text-white font-bold">{product.master_product.product_name}</p>
-                            <p className="text-slate-400 text-sm">
-                                Marca: <span className="text-brand-400 font-bold">{product.master_product.brand}</span> •
-                                EAN: <span className="text-brand-400 font-bold">{product.master_product.ean}</span>
-                            </p>
+                            <p className="text-white font-bold text-lg mb-1">{product.master_product.product_name}</p>
+                            <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+                                <p className="text-slate-400 font-medium">Marca: <span className="text-brand-300">{product.master_product.brand}</span></p>
+                                <p className="text-slate-400 font-medium">EAN: <span className="text-brand-300">{product.master_product.ean || 'N/A'}</span></p>
+                                <p className="text-slate-400 font-medium whitespace-nowrap">Keyword de Búsqueda: <span className="text-white font-black bg-brand-500/20 px-2 py-0.5 rounded border border-brand-500/30 uppercase tracking-tighter">{product.search_keyword || 'N/A'}</span></p>
+                            </div>
                         </div>
                     )}
 

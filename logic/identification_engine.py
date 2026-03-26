@@ -197,10 +197,10 @@ class IdentificationEngine:
         title_lower = listing_attrs.get("title", "").lower()
         category = listing_attrs.get("category", "")
 
-        # 1. Hard Exclusions
-        is_noise, reason = self._check_hard_exclusions(title_lower, category)
-        if is_noise:
-            return 0, 0, {"reason": reason, "item_status": "noise"}
+        # 1. Hard Exclusions (REMOVED as per user request)
+        # is_noise, reason = self._check_hard_exclusions(title_lower, category)
+        # if is_noise:
+        #    return 0, 0, l_brand
 
         # 2. Brand Match
         attr_brand = listing_attrs.get("brand") or listing_attrs.get("marca")
@@ -209,22 +209,19 @@ class IdentificationEngine:
 
         if l_brand and m_brand:
             if l_brand != m_brand and l_brand not in m_brand and m_brand not in l_brand:
-                if any(mimic in title_lower for mimic in EXTERNAL_MIMICS):
-                    return 0, 0, l_brand # Hard rejection
+                # Removed hard mimic rejection (external brands) for now
                 score -= 60 
             else:
                 matches += 1
         
-        # Mandatory Brand Presence check
-        if m_brand not in title_lower and m_brand not in l_brand:
-            return 0, 0, l_brand # Hard rejection for lack of brand intent
+        # Mandatory Brand Presence check (DISABLED for permissive mode)
+        # if m_brand not in title_lower and m_brand not in l_brand:
+        #    return 0, 0, l_brand # Hard rejection for lack of brand intent
             
-        # 3. Categorical Consistency
-        m_substance = (master_product.get("substance") or "").lower()
-        if m_substance in ["polvo", "liquido", "formula", "suplemento"]:
-            tech_indicators = ["gamer", "rgb", "escritorio", "monitor", "pc", "teclado"]
-            if any(ti in title_lower for ti in tech_indicators):
-                return 0, 0, "Categorical Mismatch"
+        # 3. Categorical Consistency (REMOVED as per user request)
+        # m_substance = (master_product.get("substance") or "").lower()
+        # if m_substance in ["polvo", "liquido", "formula", "suplemento"]:
+        #    ...
 
         # 2. Volumetric/FC Validation (Updated with structured data)
         vol_match, detected_kg, detected_qty = self.validate_volumetric_match(listing_attrs, master_product)
@@ -246,70 +243,48 @@ class IdentificationEngine:
 
     def identify_product(self, listing):
         """
-        Executes weighted matching logic and returns a comprehensive audit report.
+        [VERSION: ZeroTolerance_v4 - KeywordMandatory]
+        Identifies a master product based on the search keyword provided by the scraper.
+        1. REQUISITE: Search keyword must be literally present in the title.
+        2. ASSOCIATION: Only then, find the best matching master product for auditing.
         """
         listing_title_norm = self.normalize_text(listing.get("title", ""))
-        listing_ean = listing.get("ean_published")
+        search_keyword = (listing.get("search_keyword") or "").lower()
+        
+        # 1. HARD GATE: Keyword MUST be in title
+        if not search_keyword or search_keyword not in listing_title_norm:
+            # We fail identification immediately if the search intent is missing from title
+            return self.generate_audit_report(listing, None, 0)
+            
+        # 2. MATCHING: Find the best master product among those that match the brand/category
+        best_match = None
+        max_total_score = 0
+        match_level = 0
+        
+        # We still look for the best SKU among ALL master products to ensure we find the right one
+        # but the gate above ensures we only do this for relevant listings.
         listing_attrs = listing.get("attributes", {})
         listing_attrs["title"] = listing.get("title", "") 
-        
-        best_match = None
-        match_level = 0
-        max_total_score = 0
-        
-        # 1. Level 1: Match exact by EAN (Strong) - Priority
-        if listing_ean:
-            for mp in self.master_products:
-                if mp.get("ean") == listing_ean:
-                    best_match = mp
-                    match_level = 1
-                    break
-
-        # 2. Level 2: Weighted Attribute + Title Match
-        # Pre-detect brand to use in strict floors
-        l_brand = (listing_attrs.get("brand") or listing_attrs.get("marca") or "").lower()
-        if not l_brand:
-            for b in NUTRICIA_BRANDS:
-                if b in listing_title_norm:
-                    l_brand = b
-                    break
 
         for mp in self.master_products:
-            # Title Similarity (40%)
+            # Fuzzy match to pick the right SKU among the brand's family
             mp_name_norm = self.normalize_text(mp.get("product_name", ""))
-            title_sim = fuzz.token_set_ratio(listing_title_norm, mp_name_norm)
+            score = fuzz.token_set_ratio(listing_title_norm, mp_name_norm)
             
-            # Attribute Similarity (60%)
-            attr_score, attr_matches, detected_brand = self.calculate_attribute_score(listing_attrs, mp)
-            
-            # MANDATORY REJECTION
-            if attr_score == 0:
-                continue
-
-            # Combined Score
-            total_score = (title_sim * 0.4) + (attr_score * 0.6)
-                
-            # 3. Dynamic Thresholds & Hard Floors
-            # If title similarity is extremely low, it's a candidate for rejection
-            if title_sim < 40 and total_score < 80: 
-                total_score = 0 # Hard floor for unrelated titles
-
-            # If NO brand was detected and similarity is not strong, reject
-            if not l_brand and title_sim < 60:
-                total_score = 0
-
-            if total_score > max_total_score:
-                max_total_score = total_score
+            if score > max_total_score:
+                max_total_score = score
                 best_match = mp
 
+        # Determine match level based on the selected SKU's similarity
         if max_total_score >= 85: 
-            match_level = 2
-        elif max_total_score >= 70: 
-            match_level = 3
+            match_level = 2 # Fuzzy High
+        elif max_total_score >= 60: 
+            match_level = 3 # Suspicious/Partial
         else:
-            match_level = 0
-            best_match = None if max_total_score < 60 else best_match
-
+            # Even if keyword matches, if SKU similarity is too low, we might not want to audit price
+            # but for now we'll allow it as match_level 3 if keyword is present.
+            match_level = 3
+            
         # 3. Generate Full Audit
         audit = self.generate_audit_report(listing, best_match, match_level)
         return audit
@@ -349,7 +324,7 @@ class IdentificationEngine:
         }
         
         # Explicitly store detected brand for UI
-        details["detected_brand"] = detected_brand.title() if detected_brand else "Not detected"
+        details["detected_brand"] = str(detected_brand).title() if detected_brand else "Not detected"
 
         # Rule A: EAN Presence
         if not listing.get("ean_published") and match_level > 1:
