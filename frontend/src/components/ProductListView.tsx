@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, ExternalLink, Trash2, RotateCcw } from 'lucide-react';
+import { ChevronDown, ChevronUp, ExternalLink, Trash2, RotateCcw, Search } from 'lucide-react';
 import { ProductAudit, MatchFilter } from '../types';
 import ProductDetailPanel from './ProductDetailPanel';
 
@@ -59,15 +59,14 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
     };
 
     const getResilientUrl = (product: ProductAudit) => {
+        if (product.url && product.url.includes('mercadolibre.com.ar') && product.url !== '#') {
+            return product.url;
+        }
         if (product.meli_id && product.meli_id !== 'N/A') {
             const cleanId = product.meli_id.replace(/\D/g, '');
             return `https://articulo.mercadolibre.com.ar/MLA-${cleanId}`;
         }
-        const idMatch = product.url.match(/MLA-?(\d+)/);
-        if (idMatch) {
-            return `https://articulo.mercadolibre.com.ar/MLA-${idMatch[1]}`;
-        }
-        return product.url;
+        return product.url || '#';
     };
 
     const getStatusBadge = (status?: string) => {
@@ -104,183 +103,157 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                     </select>
                 </div>
 
-                <input
-                    type="text"
-                    placeholder="Buscar por producto o vendedor..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="flex-1 md:max-w-md px-4 py-2 bg-slate-800 border border-white/10 rounded-xl text-sm text-slate-300 placeholder-slate-500 focus:outline-none focus:border-brand-500/50"
-                />
-            </div>
-
-            {/* Contador de Resultados */}
-            <div className="text-sm text-slate-400 font-medium">
-                Mostrando <span className="text-brand-400 font-bold">{sortedProducts.length}</span> de <span className="text-white font-bold">{products.length}</span> productos
+                <div className="flex-1 md:max-w-md relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <input
+                        type="text"
+                        placeholder="Filtrar por título o vendedor..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-white/10 rounded-xl text-sm text-slate-300 placeholder-slate-500 focus:outline-none focus:border-brand-500/50"
+                    />
+                </div>
             </div>
 
             {/* Tabla de Productos */}
-            {loading ? (
-                <div className="space-y-3">
-                    {[1, 2, 3, 4, 5].map(i => (
-                        <div key={i} className="h-24 bg-slate-900/40 rounded-2xl border border-white/5 animate-pulse" />
-                    ))}
-                </div>
-            ) : sortedProducts.length === 0 ? (
-                <div className="h-64 flex items-center justify-center bg-slate-900/20 rounded-2xl border border-dashed border-white/5">
-                    <p className="text-slate-500 font-medium">No hay productos que coincidan con los filtros</p>
-                </div>
-            ) : (
-                <div className="space-y-3">
-                    {/* Encabezado de Tabla */}
-                    <div className="hidden md:grid grid-cols-[80px_1fr_120px_150px_200px_120px_100px_80px_100px] gap-4 px-4 py-2 text-[10px] uppercase tracking-wider font-black text-slate-500">
-                        <div></div>
-                        <div>Producto</div>
-                        <div>Búsqueda</div>
-                        <div
-                            className="cursor-pointer hover:text-brand-400 transition-colors flex items-center gap-1"
-                            onClick={() => toggleSort('brand')}
-                        >
-                            Marca {sortBy === 'brand' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
-                        </div>
-                        <div>Vendedor</div>
-                        <div
-                            className="cursor-pointer hover:text-brand-400 transition-colors flex items-center gap-1"
-                            onClick={() => toggleSort('price')}
-                        >
-                            Precio {sortBy === 'price' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
-                        </div>
-                        <div
-                            className="cursor-pointer hover:text-brand-400 transition-colors flex items-center gap-1"
-                            onClick={() => toggleSort('match_level')}
-                        >
-                            Coincid. {sortBy === 'match_level' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
-                        </div>
-                        <div>Stock</div>
-                        <div className="flex justify-end">Acciones</div>
+            <div className="bg-slate-900/20 rounded-3xl border border-white/5 overflow-hidden">
+                {/* Encabezado */}
+                <div className="hidden md:grid grid-cols-[80px_2.5fr_1fr_1.2fr_1fr_80px] gap-6 px-6 py-4 bg-slate-900/40 border-b border-white/5 text-[10px] uppercase font-black tracking-widest text-slate-500">
+                    <div></div>
+                    <div>Producto / Referencia</div>
+                    <div 
+                        className="cursor-pointer hover:text-brand-400 transition-colors flex items-center gap-1"
+                        onClick={() => toggleSort('brand')}
+                    >
+                        Identificación {sortBy === 'brand' && (sortOrder === 'asc' ? <ChevronUp className="w-3" /> : <ChevronDown className="w-3" />)}
                     </div>
+                    <div 
+                        className="cursor-pointer hover:text-brand-400 transition-colors flex items-center gap-1"
+                        onClick={() => toggleSort('price')}
+                    >
+                        Comercial {sortBy === 'price' && (sortOrder === 'asc' ? <ChevronUp className="w-3" /> : <ChevronDown className="w-3" />)}
+                    </div>
+                    <div 
+                        className="cursor-pointer hover:text-brand-400 transition-colors flex items-center gap-1 text-center justify-center"
+                        onClick={() => toggleSort('match_level')}
+                    >
+                        Coincidencia {sortBy === 'match_level' && (sortOrder === 'asc' ? <ChevronUp className="w-3" /> : <ChevronDown className="w-3" />)}
+                    </div>
+                    <div className="text-right pr-2">Link</div>
+                </div>
 
-                    {/* Filas de Productos */}
-                    {sortedProducts.map(product => (
-                        <div
-                            key={product.id}
-                            onClick={() => setSelectedProduct(product)}
-                            className="grid grid-cols-1 md:grid-cols-[80px_1fr_120px_150px_200px_120px_100px_80px_100px] gap-4 items-center p-4 bg-slate-900/40 hover:bg-slate-900/60 border border-white/5 hover:border-brand-500/30 rounded-2xl cursor-pointer transition-all group"
-                        >
-                            {/* Miniatura */}
-                            <div className="hidden md:block">
-                                {product.thumbnail ? (
-                                    <img src={product.thumbnail} alt={product.title} className="w-16 h-16 rounded-xl object-cover border border-white/10" />
-                                ) : (
-                                    <div className="w-16 h-16 rounded-xl bg-slate-800 border border-white/10" />
-                                )}
-                            </div>
+                {loading ? (
+                    <div className="p-6 space-y-4">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="h-24 bg-white/5 rounded-2xl animate-pulse" />
+                        ))}
+                    </div>
+                ) : sortedProducts.length === 0 ? (
+                    <div className="p-20 text-center flex flex-col items-center gap-4">
+                        <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center">
+                            <Search className="w-8 h-8 text-slate-600" />
+                        </div>
+                        <p className="text-slate-500 font-medium">No se encontraron productos con estos filtros</p>
+                    </div>
+                ) : (
+                    <div className="divide-y divide-white/5">
+                        {sortedProducts.map(product => (
+                            <div
+                                key={product.id}
+                                onClick={() => setSelectedProduct(product)}
+                                className="grid grid-cols-1 md:grid-cols-[80px_2.5fr_1fr_1.2fr_1fr_80px] gap-6 items-center p-6 hover:bg-brand-500/[0.03] transition-all cursor-pointer group"
+                            >
+                                {/* Miniatura */}
+                                <div className="hidden md:block">
+                                    <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-white/10 bg-slate-800">
+                                        {product.thumbnail ? (
+                                            <img src={product.thumbnail} alt={product.title} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center"><Search className="text-slate-600 w-6 h-6" /></div>
+                                        )}
+                                    </div>
+                                </div>
 
-                            {/* Título */}
-                            <div className="flex flex-col">
-                                <span className="text-sm font-bold text-white group-hover:text-brand-400 transition-colors">{product.title}</span>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-xs text-slate-500">ID: {product.meli_id}</span>
+                                {/* Producto & Keyword */}
+                                <div className="flex flex-col gap-2">
+                                    <span className="text-sm font-bold text-white group-hover:text-brand-400 transition-colors leading-snug">
+                                        {product.title}
+                                    </span>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-[9px] bg-brand-500/10 text-brand-400 px-2 py-0.5 rounded-md font-black uppercase tracking-tighter border border-brand-500/20">
+                                            KW: {product.search_keyword}
+                                        </span>
+                                        <span className="text-[9px] text-slate-500 font-bold uppercase">ID: {product.meli_id}</span>
+                                    </div>
+                                </div>
+
+                                {/* Marca & Vendedor */}
+                                <div className="flex flex-col gap-1">
+                                    <span className={`text-sm font-black ${product.master_product?.brand ? 'text-brand-400' : 'text-slate-600 italic'}`}>
+                                        {product.master_product?.brand || 'Sin Marca'}
+                                    </span>
+                                    <div className="flex flex-col">
+                                        {product.seller && product.seller !== 'N/A' ? (
+                                            <>
+                                                <span className="text-xs text-slate-300 font-medium truncate max-w-[150px]">{product.seller}</span>
+                                                <span className="text-[10px] text-slate-500">{product.seller_location !== 'N/A' ? product.seller_location : ''}</span>
+                                            </>
+                                        ) : <span className="text-[10px] text-slate-600 italic font-bold">Sin datos de vendedor</span>}
+                                    </div>
+                                </div>
+
+                                {/* Precio & Stock */}
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-lg font-black text-emerald-400 tracking-tighter">
+                                        ${product.price.toLocaleString('es-AR')}
+                                    </span>
+                                    <div className="flex flex-col gap-0.5">
+                                        <div className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1">
+                                            Stock: <span className="text-white">{product.available_stock ?? '0'}</span>
+                                        </div>
+                                        {getStatusBadge(product.item_status)}
+                                    </div>
+                                </div>
+
+                                {/* Match Level */}
+                                <div className="flex justify-center">
+                                    {getMatchBadge(product.match_level)}
+                                </div>
+
+                                {/* Acciones */}
+                                <div className="flex items-center justify-end gap-2 pr-2">
+                                    {viewMode === 'NOISE' ? (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); onRestore?.(product.meli_id); }}
+                                            className="p-2 hover:bg-emerald-500/20 text-slate-500 hover:text-emerald-400 rounded-xl transition-colors"
+                                            title="Restaurar"
+                                        >
+                                            <RotateCcw className="w-5 h-5" />
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); onDiscard?.(product.meli_id); }}
+                                            className="p-2 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-xl transition-colors"
+                                            title="Descartar"
+                                        >
+                                            <Trash2 className="w-5 h-5" />
+                                        </button>
+                                    )}
                                     <a
                                         href={getResilientUrl(product)}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         onClick={(e) => e.stopPropagation()}
-                                        className="p-1 hover:bg-white/10 rounded transition-all text-slate-500 hover:text-brand-400"
-                                        title="Abrir en MercadoLibre"
+                                        className="p-2 hover:bg-brand-500/20 text-slate-500 hover:text-brand-400 rounded-xl transition-colors"
                                     >
-                                        <ExternalLink className="w-3 h-3" />
+                                        <ExternalLink className="w-5 h-5" />
                                     </a>
                                 </div>
                             </div>
-                            
-                            {/* Palabra de Búsqueda */}
-                            <div className="flex flex-col">
-                                <span className="text-[10px] uppercase font-bold text-slate-500 mb-1 md:hidden">Búsqueda</span>
-                                <span className="text-sm font-bold text-brand-200/80 truncate" title={product.search_keyword}>
-                                    {product.search_keyword || 'N/A'}
-                                </span>
-                            </div>
-
-                            {/* Marca Coincidente */}
-                            <div className="flex flex-col">
-                                <span className={`text-sm font-bold ${product.master_product?.brand ? 'text-brand-300' : 'text-slate-600'}`}>
-                                    {product.master_product?.brand || 'Identificando...'}
-                                </span>
-                            </div>
-
-                            {/* Vendedor */}
-                            <div className="flex flex-col">
-                                {product.seller && product.seller !== 'N/A' && product.seller !== 'Vendedor Desconocido' ? (
-                                    <>
-                                        <span className="text-sm text-slate-300">{product.seller}</span>
-                                        {product.seller_location && product.seller_location !== 'N/A' && (
-                                            <span className="text-xs text-slate-500">{product.seller_location}</span>
-                                        )}
-                                    </>
-                                ) : (
-                                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-tighter/50 italic">Sin datos</span>
-                                )}
-                            </div>
-
-                            {/* Precio */}
-                            <div className="text-sm font-bold text-emerald-400">
-                                ${product.price.toLocaleString('es-AR')}
-                            </div>
-
-                            {/* Nivel de Coincidencia */}
-                            <div>
-                                {getMatchBadge(product.match_level)}
-                            </div>
-
-                            {/* Stock */}
-                            <div className="flex flex-col">
-                                <span className="text-[10px] uppercase font-bold text-slate-500 mb-1 md:hidden">Stock</span>
-                                <div className="flex flex-col gap-0.5">
-                                    <span className={`text-sm font-bold ${product.available_stock ? 'text-white' : 'text-slate-600'}`}>
-                                        {product.available_stock ?? 'N/A'}
-                                    </span>
-                                    {getStatusBadge(product.item_status)}
-                                </div>
-                            </div>
-
-                             <div className="flex items-center justify-end gap-3 px-2">
-                                 <div className="flex items-center gap-2">
-                                     {viewMode === 'NOISE' ? (
-                                         <button
-                                             onClick={(e) => {
-                                                 e.stopPropagation();
-                                                 if (onRestore) onRestore(product.meli_id);
-                                             }}
-                                             title="Restaurar a Audit"
-                                             className="p-2 hover:bg-emerald-500/20 text-slate-500 hover:text-emerald-400 rounded-lg transition-colors"
-                                         >
-                                             <RotateCcw className="w-4 h-4" />
-                                         </button>
-                                     ) : (
-                                         <button
-                                             onClick={(e) => {
-                                                 e.stopPropagation();
-                                                 if (onDiscard) onDiscard(product.meli_id);
-                                             }}
-                                             title="Descartar (Noise)"
-                                             className="p-2 hover:bg-red-500/20 text-slate-500 hover:text-red-400 rounded-lg transition-colors"
-                                         >
-                                             <Trash2 className="w-4 h-4" />
-                                         </button>
-                                     )}
-                                     <ExternalLink
-                                         onClick={(e) => {
-                                             e.stopPropagation();
-                                             window.open(getResilientUrl(product), '_blank');
-                                         }}
-                                         className="w-4 h-4 text-slate-500 hover:text-brand-400 transition-colors cursor-pointer"
-                                     />
-                                 </div>
-                             </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+                        ))}
+                    </div>
+                )}
+            </div>
 
             {/* Modal de Detalles */}
             {selectedProduct && (

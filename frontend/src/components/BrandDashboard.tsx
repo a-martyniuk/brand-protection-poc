@@ -1,39 +1,39 @@
 import React, { useState } from 'react';
-import { Shield, Search, ExternalLink, TrendingUp, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Search, ExternalLink, Activity, Database, CheckCircle2 } from 'lucide-react';
 import { useBrandData } from '../hooks/useBrandData';
 import { exportToCSV } from '../utils/exportUtils';
 import StatCard from './StatCard';
 import ProductListView from './ProductListView';
 
 const BrandDashboard: React.FC = () => {
-    const { products, stats, enrichmentStats, loading, fetchData, refreshScores, discardProduct, restoreProduct } = useBrandData();
+    const { products, stats, loading, fetchData, discardProduct, restoreProduct } = useBrandData();
     const [activeTab, setActiveTab] = useState<'products' | 'noise'>('products');
 
     const handleExport = () => {
-        const legacyFormat = products.map(p => ({
+        const cleanFormat = products.map(p => ({
             id: p.id,
             meli_id: p.meli_id,
-            type: p.fraud_score > 60 ? 'HIGH_RISK' : p.fraud_score > 30 ? 'MEDIUM_RISK' : 'LOW_RISK',
+            status_identificacion: p.match_level > 0 ? 'IDENTIFICADO' : 'SIN_IDENTIFICAR',
             product: p.title,
-            seller: p.seller,
-            seller_location: p.seller_location,
-            price: p.price,
-            expected: p.master_product?.list_price || 0,
-            status: p.status,
-            url: p.url,
-            thumbnail: p.thumbnail
+            keyword_busqueda: p.search_keyword,
+            marca: p.master_product?.brand || 'N/A',
+            vendedor: p.seller,
+            ubicacion: p.seller_location,
+            precio: p.price,
+            stock: p.available_stock,
+            url: p.url
         }));
-        exportToCSV(legacyFormat);
+        exportToCSV(cleanFormat);
     };
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-brand-500/30">
             {/* Encabezado */}
-            <nav className="border-b border-white/10 bg-slate-900/40 backdrop-blur-xl sticky top-0 z-50">
+            <nav className="border-b border-white/5 bg-slate-900/20 backdrop-blur-xl sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-brand-500/20 rounded-xl flex items-center justify-center border border-brand-500/30 shadow-[0_0_15px_rgba(var(--brand-500),0.1)]">
-                            <Shield className="text-brand-400 w-6 h-6" />
+                        <div className="w-10 h-10 bg-brand-500/10 rounded-xl flex items-center justify-center border border-brand-500/20">
+                            <Activity className="text-brand-400 w-5 h-5" />
                         </div>
                         <div className="flex flex-col">
                             <span className="text-lg font-bold tracking-tight text-white leading-none mb-1">Brand Intelligence</span>
@@ -42,43 +42,21 @@ const BrandDashboard: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-4">
-                        {/* Información de Estado */}
-                        <div className="hidden lg:flex flex-col items-end mr-4">
-                            <div className="flex items-center gap-2">
-                                <span className={`w-2 h-2 rounded-full ${enrichmentStats.isRunning ? 'bg-emerald-500 animate-pulse' : 'bg-slate-600'}`}></span>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                    {enrichmentStats.isRunning ? 'Extracción Activa' : 'Auditoría al día'}
-                                </span>
-                            </div>
-                            <span className="text-[9px] text-slate-500 font-medium">
-                                {stats.last_audit ? `Último Audit: ${new Date(stats.last_audit).toLocaleString()}` : 'Sin datos de auditoría'}
-                            </span>
-                        </div>
-
-                        <button
-                            onClick={refreshScores}
-                            className="flex items-center gap-2 px-5 py-2 rounded-full bg-brand-500 hover:bg-brand-600 text-white border border-brand-400/30 transition-all active:scale-95 shadow-[0_0_15px_rgba(var(--brand-500),0.2)]"
-                        >
-                            <Shield className="w-3.5 h-3.5" />
-                            <span className="text-xs font-bold uppercase tracking-wider">
-                                Refrescar Auditoría
-                            </span>
-                        </button>
-
                         <button
                             onClick={handleExport}
-                            className="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-5 py-2 rounded-full border border-white/10 transition-all active:scale-95"
+                            className="flex items-center gap-2 bg-brand-500 hover:bg-brand-600 px-5 py-2 rounded-full text-white border border-brand-400/30 transition-all active:scale-95 shadow-[0_0_15px_rgba(var(--brand-500),0.2)]"
                         >
                             <ExternalLink className="w-3.5 h-3.5" />
-                            <span className="text-xs font-bold uppercase tracking-wider text-slate-300">Exportar</span>
+                            <span className="text-xs font-bold uppercase tracking-wider">Exportar</span>
                         </button>
 
                         <button
                             onClick={fetchData}
                             disabled={loading}
-                            className="group flex items-center gap-2 bg-white/5 hover:bg-white/10 px-5 py-2 rounded-full border border-white/10 transition-all active:scale-95 disabled:opacity-50"
+                            title="Refrescar Listado"
+                            className="p-2 hover:bg-white/5 rounded-full text-slate-400 hover:text-brand-400 transition-all active:scale-95 disabled:opacity-50"
                         >
-                            <Search className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : 'text-brand-400'}`} />
+                            <Search className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
                         </button>
                     </div>
                 </div>
@@ -88,9 +66,13 @@ const BrandDashboard: React.FC = () => {
                 {/* Sección Principal */}
                 <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-white/5">
                     <div className="space-y-2">
+                        <div className="flex items-center gap-2 mb-1">
+                             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">En Tiempo Real · {stats.last_audit ? new Date(stats.last_audit).toLocaleDateString() : ''}</span>
+                        </div>
                         <h1 className="text-4xl font-black tracking-tighter text-white">Estado de Situación</h1>
                         <p className="text-slate-400 max-w-2xl text-sm font-medium">
-                            Monitoreo en tiempo real de políticas comerciales para <span className="text-brand-400 font-bold italic tracking-wide">Nutricia Bagó</span>.
+                            Monitoreo de publicaciones asociado a <span className="text-brand-400 font-bold italic tracking-wide">Nutricia Bagó</span>.
                         </p>
                     </div>
                     <div className="flex bg-slate-900/80 border border-white/5 rounded-2xl p-1.5 backdrop-blur-md self-start md:self-end">
@@ -120,41 +102,32 @@ const BrandDashboard: React.FC = () => {
                     <StatCard
                         title="Total Escaneado"
                         value={stats.scanned.toLocaleString()}
-                        label="Productos en monitoreo"
-                        icon={<Search className="text-blue-400" />}
+                        label="Registros procesados"
+                        icon={<Database className="text-blue-400" />}
                     />
                     <StatCard
                         title="Identificados"
                         value={stats.active.toString()}
-                        label="Match con Producto Maestro"
+                        label="Coincidencias de búsqueda"
                         variant="success"
                         icon={<CheckCircle2 className="text-emerald-400" />}
                     />
                     <StatCard
                         title="Sin Identificar"
                         value={stats.cleaned.toString()}
-                        label="No coinciden con Maestro"
-                        icon={<AlertTriangle className="text-slate-400" />}
+                        label="Pendientes de vinculación"
+                        icon={<Search className="text-slate-400" />}
                     />
                     <StatCard
                         title="Filtrados (Ruido)"
                         value={stats.low_risk.toString()}
-                        label="Marcados como ruido/otros"
-                        icon={<TrendingUp className="text-amber-400" />}
+                        label="Marcados como ruido manualmente"
+                        icon={<Search className="text-amber-400" />}
                     />
                 </div>
 
                 {/* Lista de Productos */}
                 <div className="space-y-6">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-brand-500/10 rounded-lg">
-                            <Shield className="w-5 h-5 text-brand-500" />
-                        </div>
-                        <h2 className="text-xl font-black text-white tracking-tight">
-                            {activeTab === 'noise' ? 'Ruido y Descartados' : 'Listado de Productos'}
-                        </h2>
-                    </div>
-
                     <ProductListView 
                         products={
                             activeTab === 'noise' 
@@ -171,8 +144,8 @@ const BrandDashboard: React.FC = () => {
 
             <footer className="max-w-7xl mx-auto px-8 py-12 border-t border-white/5 opacity-50">
                 <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
-                    <span>BeOn Brand Protection</span>
-                    <span>&copy; {new Date().getFullYear()} Panel de Prueba de Concepto</span>
+                    <span>BeOn Brand Intelligence</span>
+                    <span>&copy; {new Date().getFullYear()} Proof of Concept</span>
                 </div>
             </footer>
         </div>

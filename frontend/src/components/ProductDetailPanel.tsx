@@ -63,6 +63,12 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({ product, onClos
                             </div>
                             <a
                                 href={(() => {
+                                    // 1. Priorizar URL original si existe y parece válida
+                                    if (product.url && product.url.includes('mercadolibre.com.ar') && product.url !== '#') {
+                                        return product.url;
+                                    }
+
+                                    // 2. Reconstrucción por meli_id
                                     const mlaMatch = product.url.match(/MLA-?(\d+)/);
                                     const meliId = (product.meli_id && product.meli_id !== 'N/A') ? product.meli_id.replace(/\D/g, '') : (mlaMatch ? mlaMatch[1] : null);
                                     return meliId ? `https://articulo.mercadolibre.com.ar/MLA-${meliId}` : product.url;
