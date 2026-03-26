@@ -328,7 +328,7 @@ class IdentificationEngine:
 
         # Rule A: EAN Presence
         if not listing.get("ean_published") and match_level > 1:
-            score += 20
+            # score += 20
             details["missing_ean"] = True
 
         # Rule B: Brand Integrity
@@ -337,7 +337,7 @@ class IdentificationEngine:
             brand_sim = fuzz.ratio(str(found_brand).lower(), master_product["brand"].lower())
             if brand_sim < 85:
                 is_brand_correct = False
-                score += 30
+                # score += 30
                 details["brand_mismatch"] = {"expected": master_product["brand"], "found": found_brand}
 
         # Rule C: Price Policy (ZERO TOLERANCE)
@@ -387,7 +387,7 @@ class IdentificationEngine:
 
             if unit_price < min_price:
                 is_price_ok = False
-                score += 100 # Direct 100 for price breaking
+                # score += 100 # Direct 100 for price breaking
                 details["low_price"] = {
                     "min_allowed": min_price, 
                     "actual_unit_price": round(unit_price, 2),
@@ -397,7 +397,7 @@ class IdentificationEngine:
 
         # Rule D: Volumetric Match result (calculated above)
         if not vol_match:
-            score += 100 # Direct 100 for format fraud
+            # score += 100 # Direct 100 for format fraud
             expected_total_kg = m_net * detected_qty if detected_qty > 0 else m_net
             details["volumetric_mismatch"] = {
                 "expected_total_kg": round(expected_total_kg, 2),
@@ -409,7 +409,7 @@ class IdentificationEngine:
         # Rule E: Restricted SKU
         if not master_product.get("is_publishable", True):
             is_publishable_ok = False
-            score += 100 # Direct 100 for restricted SKU
+            # score += 100 # Direct 100 for restricted SKU
             details["restricted_sku_violation"] = True
 
         # Rule F: Trust Signal - Official Store
@@ -450,8 +450,6 @@ class IdentificationEngine:
         }
 
     def get_risk_level(self, score):
-        if score >= 60: return "Alto"
-        if score >= 30: return "Medio"
         return "Bajo"
 
     def map_violation_to_bpp_reason(self, audit_details):

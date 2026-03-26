@@ -109,16 +109,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
             {/* Filtros */}
             <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-slate-900/40 border border-white/5 rounded-2xl p-4">
                 <div className="flex flex-wrap gap-3">
-                    <select
-                        value={riskFilter}
-                        onChange={(e) => setRiskFilter(e.target.value as RiskFilter)}
-                        className="px-4 py-2 bg-slate-800 border border-white/10 rounded-xl text-sm font-bold text-slate-300 focus:outline-none focus:border-brand-500/50"
-                    >
-                        <option value="ALL">Todos los Riesgos</option>
-                        <option value="Alto">Alto</option>
-                        <option value="Medio">Medio</option>
-                        <option value="Bajo">Bajo</option>
-                    </select>
+
 
                     <select
                         value={matchFilter}
@@ -161,7 +152,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
             ) : (
                 <div className="space-y-3">
                     {/* Encabezado de Tabla */}
-                    <div className="hidden md:grid grid-cols-[80px_1fr_120px_150px_200px_120px_100px_80px_100px_120px] gap-4 px-4 py-2 text-[10px] uppercase tracking-wider font-black text-slate-500">
+                    <div className="hidden md:grid grid-cols-[80px_1fr_120px_150px_200px_120px_100px_80px_100px] gap-4 px-4 py-2 text-[10px] uppercase tracking-wider font-black text-slate-500">
                         <div></div>
                         <div>Producto</div>
                         <div>Búsqueda</div>
@@ -185,13 +176,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                             Coincid. {sortBy === 'match_level' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
                         </div>
                         <div>Stock</div>
-                        <div
-                            className="cursor-pointer hover:text-brand-400 transition-colors flex items-center gap-1"
-                            onClick={() => toggleSort('fraud_score')}
-                        >
-                            Puntaje {sortBy === 'fraud_score' && (sortOrder === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
-                        </div>
-                        <div>Riesgo</div>
+                        <div className="flex justify-end">Acciones</div>
                     </div>
 
                     {/* Filas de Productos */}
@@ -199,8 +184,10 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                         <div
                             key={product.id}
                             onClick={() => setSelectedProduct(product)}
-                            className="grid grid-cols-1 md:grid-cols-[80px_1fr_120px_150px_200px_120px_100px_80px_100px_120px] gap-4 items-center p-4 bg-slate-900/40 hover:bg-slate-900/60 border border-white/5 hover:border-brand-500/30 rounded-2xl cursor-pointer transition-all group"
+                            className="grid grid-cols-1 md:grid-cols-[80px_1fr_120px_150px_200px_120px_100px_80px_100px] gap-4 items-center p-4 bg-slate-900/40 hover:bg-slate-900/60 border border-white/5 hover:border-brand-500/30 rounded-2xl cursor-pointer transition-all group"
                         >
+                            {/* ... (miniature, title, keyword, brand, seller, price, match, stock sections remain same) ... */}
+                            {/* [OMITTED FOR CONCiseness IN TARGET CONTENT, but I will replace the whole div content below] */}
                             {/* Miniatura */}
                             <div className="hidden md:block">
                                 {product.thumbnail ? (
@@ -271,20 +258,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                                 </div>
                             </div>
 
-                            {/* Puntaje de Fraude */}
-                            <div className="flex items-center gap-2">
-                                <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
-                                    <div
-                                        className={`h-full transition-all ${product.fraud_score > 60 ? 'bg-red-500' : product.fraud_score > 30 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                                        style={{ width: `${product.fraud_score}%` }}
-                                    />
-                                </div>
-                                <span className="text-xs font-bold text-slate-400">{product.fraud_score}</span>
-                            </div>
-
-                            {/* Nivel de Riesgo */}
                              <div className="flex items-center justify-end gap-3 px-2">
-                                 {getRiskBadge(product.risk_level)}
                                  <div className="flex items-center gap-2">
                                      {viewMode === 'NOISE' ? (
                                          <button

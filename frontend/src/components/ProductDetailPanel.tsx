@@ -51,7 +51,6 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({ product, onClos
                         </div>
                         <div className="flex items-center gap-3 flex-wrap">
                             {getMatchLevelBadge()}
-                            {getRiskBadge()}
                             <div className="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-700/50 text-slate-300">
                                 <span>Stock: {product.available_stock ?? '0'}</span>
                                 <span className="w-1 h-1 rounded-full bg-slate-500"></span>
@@ -62,9 +61,6 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({ product, onClos
                                     {product.item_status || 'active'}
                                 </span>
                             </div>
-                            <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-700/50 text-slate-300">
-                                Score: {product.fraud_score}/100
-                            </span>
                             <a
                                 href={(() => {
                                     const mlaMatch = product.url.match(/MLA-?(\d+)/);
@@ -102,44 +98,20 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({ product, onClos
                             </div>
                         </div>
                     )}
-
+ 
                     {/* Comparación de Campos */}
                     <div className="space-y-4">
                         <div className="flex items-center gap-3 mb-4">
-                            <div className="p-2 bg-amber-500/10 rounded-lg">
-                                <AlertTriangle className="w-5 h-5 text-amber-500" />
-                            </div>
-                            <h3 className="text-lg font-black text-white tracking-tight">Control de Cumplimiento por Campo</h3>
+                            <h3 className="text-lg font-black text-white tracking-tight">Detalles Técnicos y Comparativa</h3>
                         </div>
-
+                        
                         <FieldComparisonRow fieldName="EAN" field={product.fields.ean} />
                         <FieldComparisonRow fieldName="Marca" field={product.fields.brand} />
                         <FieldComparisonRow fieldName="Precio" field={product.fields.price} />
                         <FieldComparisonRow fieldName="Volumen/Peso" field={product.fields.volume} />
                         <FieldComparisonRow fieldName="Cantidad" field={product.fields.quantity} />
-                        <FieldComparisonRow fieldName="Política de Descuento" field={product.fields.discount} />
                         <FieldComparisonRow fieldName="Publicable" field={product.fields.publishable} />
                     </div>
-
-                    {/* Resumen de Violaciones */}
-                    {product.fraud_score > 0 && (
-                        <div className="mt-6 p-4 bg-red-500/5 border border-red-500/20 rounded-2xl">
-                            <div className="flex items-center gap-2 mb-3">
-                                <TrendingDown className="w-5 h-5 text-red-400" />
-                                <h3 className="text-sm font-black uppercase tracking-wider text-red-400">Problemas de Cumplimiento Detectados</h3>
-                            </div>
-                            <ul className="space-y-2">
-                                {Object.entries(product.fields).map(([key, field]) =>
-                                    field.status === 'rejected' && field.details && (
-                                        <li key={key} className="text-sm text-slate-300 flex items-start gap-2">
-                                            <span className="text-red-400 font-bold">•</span>
-                                            <span><span className="font-bold capitalize">{key}:</span> {field.details} <span className="text-red-400 font-bold">(+{field.score_impact} pts)</span></span>
-                                        </li>
-                                    )
-                                )}
-                            </ul>
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

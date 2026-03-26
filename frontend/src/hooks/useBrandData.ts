@@ -12,29 +12,29 @@ function parseFieldStatus(audit: any, listing: any, master: any): ProductAudit['
         ean: {
             scraped: listing?.ean_published || 'No provisto',
             master: master?.ean || 'N/A',
-            status: details.missing_ean ? 'warning' : (listing?.ean_published ? 'approved' : 'n/a'),
+            status: 'approved',
             details: details.missing_ean ? 'EAN no provisto en la publicación' : undefined,
-            score_impact: details.missing_ean ? 20 : 0
+            score_impact: 0
         },
         brand: {
             scraped: details.brand_mismatch?.found || listing?.brand_detected || details.detected_brand || 'No detectada',
             master: details.brand_mismatch?.expected || master?.brand || 'N/A',
-            status: details.brand_mismatch ? 'rejected' : 'approved',
+            status: 'approved',
             details: details.brand_mismatch ? `Esperado "${details.brand_mismatch.expected}", encontrado "${details.brand_mismatch.found}"` : undefined,
-            score_impact: details.brand_mismatch ? 30 : 0
+            score_impact: 0
         },
         price: {
             scraped: listing?.price ? `$${listing.price.toLocaleString('es-AR')}` : 'N/A',
             master: details.low_price?.min_allowed
                 ? `$${details.low_price.min_allowed.toLocaleString('es-AR')} (min)`
                 : (master?.list_price ? `$${master.list_price.toLocaleString('es-AR')}` : 'N/A'),
-            status: details.low_price ? 'rejected' : 'approved',
+            status: 'approved',
             details: details.low_price
                 ? (details.unit_price_info?.is_pack
-                    ? `Precio Unitario $${details.unit_price_info.unit_price?.toLocaleString('es-AR')} está por debajo de la referencia $${details.low_price.min_allowed?.toLocaleString('es-AR')}`
-                    : `Precio $${listing?.price?.toLocaleString('es-AR')} está por debajo de la referencia mínima $${details.low_price.min_allowed?.toLocaleString('es-AR')}`)
+                    ? `Precio Unitario $${details.unit_price_info.unit_price?.toLocaleString('es-AR')} (Referencia: $${details.low_price.min_allowed?.toLocaleString('es-AR')})`
+                    : `Precio $${listing?.price?.toLocaleString('es-AR')} (Referencia: $${details.low_price.min_allowed?.toLocaleString('es-AR')})`)
                 : (details.unit_price_info?.is_pack ? `Precio Unitario: $${details.unit_price_info.unit_price?.toLocaleString('es-AR')}` : undefined),
-            score_impact: details.low_price ? 100 : 0,
+            score_impact: 0,
             unit_price: details.unit_price_info?.unit_price,
             qty_multiplier: details.unit_price_info?.detected_qty,
             master_unit_value: master?.list_price
@@ -46,11 +46,11 @@ function parseFieldStatus(audit: any, listing: any, master: any): ProductAudit['
             master: (details.volumetric_info?.expected_total_kg || details.volumetric_mismatch?.expected_kg || master?.fc_net)
                 ? `${details.volumetric_info?.expected_total_kg || details.volumetric_mismatch?.expected_kg || master?.fc_net} kg`
                 : 'N/A',
-            status: details.volumetric_mismatch ? 'rejected' : 'approved',
+            status: 'approved',
             details: details.volumetric_mismatch
-                ? `Discrepancia de volumen detectada (Esperado ${details.volumetric_info?.expected_total_kg || details.volumetric_mismatch?.expected_kg || master?.fc_net}kg)`
+                ? `Referencia esperada: ${details.volumetric_info?.expected_total_kg || details.volumetric_mismatch?.expected_kg || master?.fc_net}kg`
                 : undefined,
-            score_impact: details.volumetric_mismatch ? 100 : 0,
+            score_impact: 0,
             unit_weight: details.volumetric_info?.unit_weight,
             qty_multiplier: details.volumetric_info?.detected_qty,
             master_unit_value: master?.fc_net ? (master.fc_net < 1 ? `${master.fc_net * 1000}g` : `${master.fc_net}kg`) : 'N/A'
@@ -62,29 +62,27 @@ function parseFieldStatus(audit: any, listing: any, master: any): ProductAudit['
             master: (master?.units_per_pack || details.combo_mismatch?.master || 1)
                 ? `${master?.units_per_pack || details.combo_mismatch?.master || 1} unidades`
                 : '1 unidad',
-            status: details.combo_mismatch ? 'rejected' : 'approved',
+            status: 'approved',
             details: details.combo_mismatch
-                ? `Esperado ${details.combo_mismatch.master} unidades, encontrado ${details.combo_mismatch.listing}`
+                ? `Referencia esperada: ${details.combo_mismatch.master} unidades`
                 : undefined,
-            score_impact: details.combo_mismatch ? 20 : 0
+            score_impact: 0
         },
         discount: {
-            scraped: details.unauthorized_discount ? 'Sí (no autorizado)' : 'No',
-            master: details.unauthorized_discount ? 'No permitido' : 'Permitido',
-            status: details.unauthorized_discount ? 'rejected' : 'approved',
-            details: details.unauthorized_discount
-                ? 'Este producto nunca debería tener descuento'
-                : undefined,
-            score_impact: details.unauthorized_discount ? 60 : 0
+            scraped: details.unauthorized_discount ? 'Detectado' : 'No',
+            master: 'Info',
+            status: 'approved',
+            details: undefined,
+            score_impact: 0
         },
         publishable: {
             scraped: listing?.status_publicacion || 'Activa',
-            master: details.restricted_sku_violation ? 'No publicable' : 'Publicable',
-            status: details.restricted_sku_violation ? 'rejected' : 'approved',
+            master: details.restricted_sku_violation ? 'Restringido' : 'Normal',
+            status: 'approved',
             details: details.restricted_sku_violation
-                ? 'Este SKU no debe publicarse en el marketplace'
+                ? 'Este SKU tiene restricciones de venta'
                 : undefined,
-            score_impact: details.restricted_sku_violation ? 100 : 0
+            score_impact: 0
         }
     };
 }
