@@ -190,6 +190,7 @@ export const useBrandData = () => {
                     fields: parseFieldStatus(a, a.meli_listings, a.master_products),
                     master_product: a.master_products,
                     available_stock: a.meli_listings?.available_quantity,
+                    search_keyword: a.meli_listings?.search_keyword || 'N/A',
                     item_status: a.meli_listings?.item_status || 'active'
                 }));
                 setProducts(fetchedProducts);

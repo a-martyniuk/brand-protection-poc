@@ -131,6 +131,7 @@ class MeliAPIScraper:
                         
                         for res in page_results:
                             norm_attrs = self.normalize_attributes(res["title"], res["raw_attributes"])
+                            
                             # Clean URL
                             clean_url = res["url"].split('?')[0] if '?' in res["url"] else res["url"]
                             
@@ -148,6 +149,7 @@ class MeliAPIScraper:
                                 "seller_reputation": res["seller_reputation"],
                                 "ean_published": None,
                                 "attributes": norm_attrs,
+                                "search_keyword": query,
                                 "official_product_id": item.get("official_id")
                             })
 

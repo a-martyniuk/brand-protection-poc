@@ -449,10 +449,15 @@ class IdentificationEngine:
         
         # Add Seller Reputation to details for context
         reputation = listing.get("seller_reputation", {})
-        if reputation:
+        if isinstance(reputation, dict):
             details["seller_reputation"] = {
-                "level": reputation.get("level"),
+                "level": reputation.get("level") or reputation.get("level_id"),
                 "power_seller": reputation.get("power_seller")
+            }
+        elif isinstance(reputation, str):
+            details["seller_reputation"] = {
+                "level": reputation,
+                "power_seller": None
             }
 
         # Ensure score stays in range

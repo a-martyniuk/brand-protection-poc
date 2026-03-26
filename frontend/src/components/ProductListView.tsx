@@ -161,9 +161,10 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
             ) : (
                 <div className="space-y-3">
                     {/* Encabezado de Tabla */}
-                    <div className="hidden md:grid grid-cols-[80px_1fr_150px_200px_120px_100px_80px_100px_120px] gap-4 px-4 py-2 text-[10px] uppercase tracking-wider font-black text-slate-500">
+                    <div className="hidden md:grid grid-cols-[80px_1fr_120px_150px_200px_120px_100px_80px_100px_120px] gap-4 px-4 py-2 text-[10px] uppercase tracking-wider font-black text-slate-500">
                         <div></div>
                         <div>Producto</div>
+                        <div>Búsqueda</div>
                         <div
                             className="cursor-pointer hover:text-brand-400 transition-colors flex items-center gap-1"
                             onClick={() => toggleSort('brand')}
@@ -198,7 +199,7 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                         <div
                             key={product.id}
                             onClick={() => setSelectedProduct(product)}
-                            className="grid grid-cols-1 md:grid-cols-[80px_1fr_150px_200px_120px_100px_80px_100px_120px] gap-4 items-center p-4 bg-slate-900/40 hover:bg-slate-900/60 border border-white/5 hover:border-brand-500/30 rounded-2xl cursor-pointer transition-all group"
+                            className="grid grid-cols-1 md:grid-cols-[80px_1fr_120px_150px_200px_120px_100px_80px_100px_120px] gap-4 items-center p-4 bg-slate-900/40 hover:bg-slate-900/60 border border-white/5 hover:border-brand-500/30 rounded-2xl cursor-pointer transition-all group"
                         >
                             {/* Miniatura */}
                             <div className="hidden md:block">
@@ -225,6 +226,14 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                                         <ExternalLink className="w-3 h-3" />
                                     </a>
                                 </div>
+                            </div>
+                            
+                            {/* Palabra de Búsqueda */}
+                            <div className="flex flex-col">
+                                <span className="text-[10px] uppercase font-bold text-slate-500 mb-1 md:hidden">Búsqueda</span>
+                                <span className="text-sm font-bold text-brand-200/80 truncate" title={product.search_keyword}>
+                                    {product.search_keyword || 'N/A'}
+                                </span>
                             </div>
 
                             {/* Marca Coincidente */}

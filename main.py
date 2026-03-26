@@ -55,6 +55,7 @@ async def run_pipeline():
                 "official_store_id": l.get("official_store_id"),
                 "seller_reputation": l.get("seller_reputation", {}),
                 "attributes": l.get("attributes", {}),
+                "search_keyword": l.get("search_keyword"),
                 "available_quantity": l.get("available_quantity", 0)
             }
     

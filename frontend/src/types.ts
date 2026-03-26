@@ -23,6 +23,7 @@ export interface ProductAudit {
     url: string;
     available_stock?: number;
     item_status?: string; // "active" | "paused" | "closed" | "noise" | "noise_manual"
+    search_keyword?: string;
 
     // Información de coincidencia y cumplimiento
     match_level: number; // 0-3 (0=unidentified, 1=EAN, 2=Fuzzy, 3=Suspicious)
