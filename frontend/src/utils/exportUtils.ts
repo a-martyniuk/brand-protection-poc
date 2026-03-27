@@ -1,23 +1,19 @@
-import { Violation } from '../types';
+export const exportToCSV = (data: any[], filenamePrefix: string = 'brand_intelligence_report') => {
+    if (!data || data.length === 0) return;
 
-export const exportToCSV = (violations: Violation[]) => {
-    const headers = ["ID MeLi", "Producto", "Vendedor", "Ubicación", "Estado", "Tipo", "Precio", "MAP", "URL"];
-    const rows = violations.map((v: Violation) => [
-        v.meli_id,
-        v.product,
-        v.seller,
-        v.seller_location,
-        v.status,
-        v.type,
-        v.price,
-        v.expected,
-        v.url
-    ]);
+    // Extraer cabeceras de las llaves del primer objeto
+    const headers = Object.keys(data[0]);
+    const rows = data.map(obj => 
+        headers.map(header => obj[header])
+    );
 
     const csvContent = [
-        headers.join(","),
-        ...rows.map((row: (string | number | boolean | undefined)[]) =>
-            row.map(cell => `"${cell ?? ''}"`).join(",")
+        headers.map(h => h.replace(/_/g, ' ').toUpperCase()).join(","),
+        ...rows.map(row =>
+            row.map(cell => {
+                const flatCell = cell === null || cell === undefined ? '' : String(cell);
+                return `"${flatCell.replace(/"/g, '""')}"`;
+            }).join(",")
         )
     ].join("\n");
 
@@ -25,7 +21,7 @@ export const exportToCSV = (violations: Violation[]) => {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", `brand_protection_report_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `${filenamePrefix}_${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
