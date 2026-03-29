@@ -114,7 +114,7 @@ const BrandDashboard: React.FC = () => {
                     />
                     <StatCard
                         title="No Identificados (Ruido)"
-                        value={(stats.cleaned + stats.low_risk).toString()}
+                        value={stats.cleaned.toString()}
                         label="Sin marca/modelo detectado"
                         icon={<Search className="text-amber-400" />}
                     />

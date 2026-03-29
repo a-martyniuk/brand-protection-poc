@@ -83,6 +83,13 @@ function parseFieldStatus(audit: any, listing: any, master: any): ProductAudit['
                 ? 'Este SKU tiene restricciones de venta'
                 : undefined,
             score_impact: 0
+        },
+        category: {
+            scraped: listing?.category_id || 'N/A',
+            master: master?.category_id || 'MLA1648', // Defaulting for PoC if missing in master
+            status: (listing?.category_id && listing.category_id !== 'N/A') ? 'approved' : 'warning',
+            details: (listing?.category_id === 'N/A') ? 'Categoría no detectada por el scraper' : undefined,
+            score_impact: 0
         }
     };
 }

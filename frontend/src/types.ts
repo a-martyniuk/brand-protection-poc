@@ -47,6 +47,7 @@ export interface ProductAudit {
         quantity: FieldStatus;
         discount: FieldStatus;
         publishable: FieldStatus;
+        category: FieldStatus;
     };
 
     // Referencia del producto maestro

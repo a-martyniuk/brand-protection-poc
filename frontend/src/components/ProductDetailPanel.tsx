@@ -132,6 +132,7 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({ product, onClos
                         <FieldComparisonRow fieldName="Volumen/Peso" field={product.fields.volume} />
                         <FieldComparisonRow fieldName="Cantidad" field={product.fields.quantity} />
                         <FieldComparisonRow fieldName="Publicable" field={product.fields.publishable} />
+                        <FieldComparisonRow fieldName="Categoría" field={product.fields.category} />
                     </div>
                 </div>
             </div>
