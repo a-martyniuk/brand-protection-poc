@@ -176,7 +176,8 @@ export const useBrandData = () => {
             const { count: listingCount } = await supabase.from('meli_listings').select('*', { count: 'exact', head: true });
             const { count: identifiedCount } = await supabase.from('compliance_audit').select('*', { count: 'exact', head: true }).gt('match_level', 0);
             const { count: unidentifiedCount } = await supabase.from('compliance_audit').select('*', { count: 'exact', head: true }).eq('match_level', 0);
-            const { count: noiseCount } = await supabase.from('meli_listings').select('*', { count: 'exact', head: true }).like('item_status', 'noise%');
+            const { count: autoNoiseCount } = await supabase.from('meli_listings').select('*', { count: 'exact', head: true }).eq('item_status', 'noise');
+            const { count: manualNoiseCount } = await supabase.from('meli_listings').select('*', { count: 'exact', head: true }).eq('item_status', 'noise_manual');
 
             if (allAuditData) {
                 const fetchedProducts: ProductAudit[] = allAuditData.map((a: any) => ({
@@ -210,11 +211,11 @@ export const useBrandData = () => {
 
             setStats({
                 scanned: listingCount || 0,
-                active: identifiedCount || 0, // Usamos 'active' para Identificados
-                cleaned: unidentifiedCount || 0, // Usamos 'cleaned' para No Identificados
+                active: identifiedCount || 0, 
+                cleaned: autoNoiseCount || 0, // Ruido automático
                 high_risk: 0,
                 medium_risk: 0,
-                low_risk: noiseCount || 0, // Usamos 'low_risk' para Ruido
+                low_risk: manualNoiseCount || 0, // Filtrado manual
                 last_audit: allAuditData?.[0]?.processed_at
             });
 

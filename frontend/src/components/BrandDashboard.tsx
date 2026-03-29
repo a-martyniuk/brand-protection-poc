@@ -113,15 +113,15 @@ const BrandDashboard: React.FC = () => {
                         icon={<CheckCircle2 className="text-emerald-400" />}
                     />
                     <StatCard
-                        title="No Identificados (Ruido)"
+                        title="Ruido Automático"
                         value={stats.cleaned.toString()}
-                        label="Sin marca/modelo detectado"
+                        label="Descartado por el motor"
                         icon={<Search className="text-amber-400" />}
                     />
                     <StatCard
-                        title="Filtrados Manual"
+                        title="Filtrado Manual"
                         value={stats.low_risk.toString()}
-                        label="Marcados manualmente"
+                        label="Acciones del usuario"
                         variant="warning"
                         icon={<Database className="text-slate-400" />}
                     />
