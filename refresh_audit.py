@@ -3,7 +3,7 @@ from logic.supabase_handler import SupabaseHandler
 from logic.identification_engine import IdentificationEngine
 
 async def refresh_audit():
-    print("🔄 Starting Audit Refresh...")
+    print("Starting Audit Refresh...")
     db = SupabaseHandler()
     engine = IdentificationEngine()
     
@@ -25,11 +25,11 @@ async def refresh_audit():
     print(f"Total listings loaded: {len(listings)}")
     
     # 2. Re-run identification for each
-    print("Re-calculating fraud scores with new Multipack & Unit Price logic...")
+    print("Re-calculating fraud scores with precision thresholds...")
     audit_records = []
+    noise_ids = []
+    
     for l in listings:
-        # identify_product expects the listing structure from the scraper
-        # which is largely what's in the DB, but we ensure 'attributes' is handled
         audit = engine.identify_product(l)
         audit_records.append({
             "listing_id": l["id"],
@@ -43,17 +43,23 @@ async def refresh_audit():
             "violation_details": audit["violation_details"]
         })
 
-        # Sync item_status to meli_listings if it's noise
-        status = audit.get("violation_details", {}).get("item_status")
-        if status == "noise":
-            db.supabase.table("meli_listings").update({"item_status": "noise"}).eq("id", l["id"]).execute()
+        # Track which listings should be marked as noise
+        if audit["match_level"] == 0:
+            noise_ids.append(l["id"])
     
-    # 3. Batch Update Audit Table
+    # 3. Batch Update Listings (Status)
+    if noise_ids:
+        print(f"Moving {len(noise_ids)} items to Noise status...")
+        # Update status in batches of 100 to avoid long query strings
+        for i in range(0, len(noise_ids), 100):
+            batch = noise_ids[i:i+100]
+            db.supabase.table("meli_listings").update({"item_status": "noise"}).in_("id", batch).execute()
+    
+    # 4. Batch Update Audit Table
     if audit_records:
         print(f"Syncing {len(audit_records)} updated audit results to Supabase...")
-        # log_compliance_audit uses upsert, so it will update existing records for these listings
         db.log_compliance_audit(audit_records)
-        print("✅ Audit refresh complete. New scores are now live in the Dashboard.")
+        print("[OK] Audit refresh complete. New scores are now live in the Dashboard.")
     else:
         print("No listings found to audit.")
 

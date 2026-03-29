@@ -73,11 +73,11 @@ class MeliAPIEnricher:
             failed=0
         )
         
-        print(f"🔍 Found {len(products)} products to enrich")
-        print(f"📊 Status tracking: {self.status_file}")
+        print(f"SEARCH: Found {len(products)} products to enrich")
+        print(f"STATUS: Status tracking: {self.status_file}")
         
         if not products:
-            print("✓ No products need enrichment")
+            print("[OK] No products need enrichment")
             self.update_status(running=False)
             return
         
@@ -107,19 +107,19 @@ class MeliAPIEnricher:
                     self.update_product(product['id'], details)
                     ean = details.get('ean')
                     brand = details.get('brand', 'N/A')
-                    print(f"  ✓ Enriched - EAN: {ean}, Brand: {brand}")
+                    print(f"  [OK] Enriched - EAN: {ean}, Brand: {brand}")
                     
                     self.log_product(meli_id, "enriched", ean=ean)
                     self.progress["enriched"] += 1
                 else:
-                    print(f"  ⚠ No EAN found in API response")
+                    print(f"  [WARN] No EAN found in API response")
                     self.log_product(meli_id, "no_data")
                 
                 # Rate limiting
                 time.sleep(self.delay)
                     
             except Exception as e:
-                print(f"  ✗ Error: {e}")
+                print(f"  [FAIL] Error: {e}")
                 self.log_product(meli_id, "failed", error=str(e))
                 self.progress["failed"] += 1
                 continue
@@ -134,7 +134,7 @@ class MeliAPIEnricher:
         )
         
         print("\n" + "=" * 80)
-        print(f"✓ Enrichment complete:")
+        print(f"[OK] Enrichment complete:")
         print(f"  - Total processed: {self.progress['processed']}/{len(products)}")
         print(f"  - Enriched: {self.progress['enriched']}")
         print(f"  - Failed: {self.progress['failed']}")

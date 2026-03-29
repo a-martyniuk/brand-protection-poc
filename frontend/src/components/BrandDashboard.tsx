@@ -88,7 +88,7 @@ const BrandDashboard: React.FC = () => {
                         <button
                             onClick={() => setActiveTab('noise')}
                             className={`px-5 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-300 ${activeTab === 'noise'
-                                ? 'bg-slate-700 text-white'
+                                ? 'bg-amber-600 text-white shadow-[0_0_20px_rgba(var(--amber-600),0.3)]'
                                 : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
                                 }`}
                         >
@@ -108,21 +108,22 @@ const BrandDashboard: React.FC = () => {
                     <StatCard
                         title="Identificados"
                         value={stats.active.toString()}
-                        label="Coincidencias de búsqueda"
+                        label="Coincidencias de SKU"
                         variant="success"
                         icon={<CheckCircle2 className="text-emerald-400" />}
                     />
                     <StatCard
-                        title="Sin Identificar"
-                        value={stats.cleaned.toString()}
-                        label="Pendientes de vinculación"
-                        icon={<Search className="text-slate-400" />}
+                        title="No Identificados (Ruido)"
+                        value={(stats.cleaned + stats.low_risk).toString()}
+                        label="Sin marca/modelo detectado"
+                        icon={<Search className="text-amber-400" />}
                     />
                     <StatCard
-                        title="Filtrados (Ruido)"
+                        title="Filtrados Manual"
                         value={stats.low_risk.toString()}
-                        label="Marcados como ruido manualmente"
-                        icon={<Search className="text-amber-400" />}
+                        label="Marcados manualmente"
+                        variant="warning"
+                        icon={<Database className="text-slate-400" />}
                     />
                 </div>
 
@@ -131,8 +132,8 @@ const BrandDashboard: React.FC = () => {
                     <ProductListView 
                         products={
                             activeTab === 'noise' 
-                                ? products.filter(p => p.item_status === 'noise' || p.item_status === 'noise_manual')
-                                : products.filter(p => p.item_status !== 'noise' && p.item_status !== 'noise_manual')
+                                ? products.filter(p => p.match_level === 0 || p.item_status.startsWith('noise'))
+                                : products.filter(p => p.match_level > 0 && !p.item_status.startsWith('noise'))
                         } 
                         loading={loading} 
                         onDiscard={discardProduct}

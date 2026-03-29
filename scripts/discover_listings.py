@@ -51,13 +51,13 @@ class MeliBrowserDiscovery:
 
     async def run_discovery(self):
         queries = await self.get_search_queries()
-        print(f"🚀 Starting Browser Discovery for {len(queries)} queries...")
+        print(f"Starting Browser Discovery for {len(queries)} queries...")
         
         async with async_playwright() as p:
             context = await p.chromium.launch_persistent_context(
                 self.user_data_dir,
                 channel="chrome",
-                headless=False, # Headed mode as requested/preferred for stability
+                headless=True, # Improved stability for background automation
                 viewport={"width": 1280, "height": 800},
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
                 args=["--disable-blink-features=AutomationControlled", "--no-sandbox"]
@@ -139,11 +139,14 @@ class MeliBrowserDiscovery:
                         
                         listings = []
                         for res in items_data:
-                            if res["meli_id"] == "N/A": continue
+                            raw_id = str(res["meli_id"]).strip()
+                            if raw_id == "N/A" or not raw_id: continue
+                            
+                            clean_id = f"MLA{raw_id}" if not raw_id.upper().startswith('MLA') else raw_id.upper()
                             
                             listings.append({
-                                "meli_id": f"MLA{res['meli_id']}" if not res['meli_id'].startswith('MLA') else res['meli_id'],
-                                "title": res["title"],
+                                "meli_id": clean_id,
+                                "title": res["title"].strip(),
                                 "price": float(res["price_str"]) if res["price_str"] else 0.0,
                                 "url": res["url"].split('?')[0],
                                 "thumbnail": res["thumbnail"],
@@ -153,16 +156,27 @@ class MeliBrowserDiscovery:
                                 # Super Scraper fields
                                 "category_id": res["category_id"],
                                 "category_name": res["category_id"], # Placeholder for now
-                                "seller_name": res["seller_name"],
+                                "seller_name": res["seller_name"].strip() if res["seller_name"] else "N/A",
                                 "sold_quantity_str": res["sold_quantity_str"],
                                 "is_full": res["is_full"],
                                 "is_official_store": res["is_official_store"]
                             })
                             
                         if listings:
-                            self.db.upsert_meli_listings(listings)
-                            total_upserted += len(listings)
-                            print(f"    ✓ Page {page_num + 1} - Upserted {len(listings)} items")
+                            # Final absolute deduplication before upsert
+                            seen_ids = set()
+                            final_listings = []
+                            for l in listings:
+                                if l['meli_id'] not in seen_ids:
+                                    final_listings.append(l)
+                                    seen_ids.add(l['meli_id'])
+                            
+                            success = self.db.upsert_meli_listings(final_listings)
+                            if success:
+                                total_upserted += len(final_listings)
+                                print(f"    - Page {page_num + 1} - Upserted {len(final_listings)} items")
+                            else:
+                                print(f"    - Page {page_num + 1} - FAILED upsert")
                         
                         # Next Page Click
                         if page_num < self.pages_per_query - 1:
@@ -174,14 +188,14 @@ class MeliBrowserDiscovery:
                                 break
                                 
                 except Exception as e:
-                    print(f"  ✗ Error searching '{query}': {e}")
+                    print(f"    - Error searching '{query}': {e}")
                 
                 # Cooldown between queries
                 await asyncio.sleep(random.uniform(3, 6))
             
             await context.close()
             print("\n" + "="*50)
-            print(f"✓ Discovery Complete! Total results: {total_upserted}")
+            print(f"Discovery Complete! Total results: {total_upserted}")
             print("="*50)
 
 if __name__ == "__main__":
