@@ -192,11 +192,17 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                                     </div>
                                 </div>
 
-                                {/* Marca & Vendedor */}
                                 <div className="flex flex-col gap-1">
-                                    <span className={`text-sm font-black ${product.master_product?.brand ? 'text-brand-400' : 'text-slate-600 italic'}`}>
-                                        {product.master_product?.brand || 'Sin Marca'}
-                                    </span>
+                                    <div className="flex flex-col">
+                                        <span className={`text-sm font-black ${product.master_product?.brand ? 'text-brand-400' : 'text-slate-600 italic'}`}>
+                                            {product.master_product?.brand || 'Sin Marca'}
+                                        </span>
+                                        {product.category_id && (
+                                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest opacity-80 decoration-brand-500/30">
+                                                {product.category_id}
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className="flex flex-col">
                                         {product.seller && product.seller !== 'N/A' ? (
                                             <>
