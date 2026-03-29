@@ -132,8 +132,8 @@ const BrandDashboard: React.FC = () => {
                     <ProductListView 
                         products={
                             activeTab === 'noise' 
-                                ? products.filter(p => p.match_level === 0 || p.item_status.startsWith('noise'))
-                                : products.filter(p => p.match_level > 0 && !p.item_status.startsWith('noise'))
+                                ? products.filter(p => p.match_level === 0 || p.item_status?.startsWith('noise'))
+                                : products.filter(p => p.match_level > 0 && !p.item_status?.startsWith('noise'))
                         } 
                         loading={loading} 
                         onDiscard={discardProduct}
