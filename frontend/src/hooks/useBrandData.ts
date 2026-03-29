@@ -189,7 +189,14 @@ export const useBrandData = () => {
                     master_product: a.master_products,
                     available_stock: a.meli_listings?.available_quantity,
                     search_keyword: a.meli_listings?.search_keyword || 'N/A',
-                    item_status: a.meli_listings?.item_status || 'active'
+                    item_status: a.meli_listings?.item_status || 'active',
+                    
+                    // Super Scraper Augmented Data
+                    category_id: a.meli_listings?.category_id,
+                    category_name: a.meli_listings?.category_name,
+                    is_official_store: a.meli_listings?.is_official_store,
+                    sold_quantity_str: a.meli_listings?.sold_quantity_str,
+                    is_full: a.meli_listings?.is_full
                 }));
                 setProducts(fetchedProducts);
             }
