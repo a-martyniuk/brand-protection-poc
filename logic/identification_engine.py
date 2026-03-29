@@ -251,23 +251,54 @@ class IdentificationEngine:
         listing_title_norm = self.normalize_text(listing.get("title", ""))
         search_keyword = (listing.get("search_keyword") or "").lower()
         
-        # 1. HARD GATE: Keyword MUST be in title
-        if not search_keyword or search_keyword not in listing_title_norm:
-            # We fail identification immediately if the search intent is missing from title
+        # 1. BRAND DETECTION: Detect which brand(s) are in the title using whole-word matching
+        # This replaces the restrictive search_keyword gate.
+        detected_brands = []
+        unique_brands = sorted(list(set(mp.get("brand", "") for mp in self.master_products if mp.get("brand"))), key=len, reverse=True)
+        
+        for brand in unique_brands:
+            brand_norm = brand.lower()
+            if re.search(rf"\b{re.escape(brand_norm)}\b", listing_title_norm):
+                detected_brands.append(brand_norm)
+        
+        # 2. CANDIDATE SELECTION
+        candidates = []
+        listing_category = (listing.get("category_id") or "").upper()
+
+        if detected_brands:
+            # Priority 1: Match against the detected brand(s)
+            candidates = [
+                mp for mp in self.master_products 
+                if mp.get("brand", "").lower() in detected_brands
+            ]
+        elif search_keyword:
+            # Priority 2: Fallback to the search keyword gate if no brand was explicitly detected
+            pattern = rf"\b{re.escape(search_keyword)}\b"
+            if re.search(pattern, listing_title_norm):
+                candidates = [
+                    mp for mp in self.master_products 
+                    if search_keyword in self.normalize_text(mp.get("product_name", "")) or 
+                       search_keyword in self.normalize_text(mp.get("brand", ""))
+                ]
+
+        # 2.1 CATEGORY FILTER: If we have a category, favor master products that might match it
+        # (Medical/Infant Nutrition categories often start with MLA13xx or similar)
+        # For now, we'll just prioritize, but could hard-discard in the future.
+
+        # If still no candidates, it's noise
+        if not candidates:
             return self.generate_audit_report(listing, None, 0)
-            
-        # 2. MATCHING: Find the best master product among those that match the brand/category
+
+        # 3. MATCHING: Find the best master product among candidates
         best_match = None
         max_total_score = 0
         match_level = 0
-        
-        # We still look for the best SKU among ALL master products to ensure we find the right one
-        # but the gate above ensures we only do this for relevant listings.
-        listing_attrs = listing.get("attributes", {})
+
+        listing_attrs = listing.get("attributes") or {}
         listing_attrs["title"] = listing.get("title", "") 
 
-        for mp in self.master_products:
-            # Fuzzy match to pick the right SKU among the brand's family
+        for mp in candidates:
+            # Fuzzy match to pick the right SKU among the filtered family
             mp_name_norm = self.normalize_text(mp.get("product_name", ""))
             score = fuzz.token_set_ratio(listing_title_norm, mp_name_norm)
             
@@ -276,14 +307,15 @@ class IdentificationEngine:
                 best_match = mp
 
         # Determine match level based on the selected SKU's similarity
-        if max_total_score >= 85: 
-            match_level = 2 # Fuzzy High
+        if max_total_score == 100:
+            match_level = 1 # Exact Match
+        elif max_total_score >= 85: 
+            match_level = 2 # High Similarity
         elif max_total_score >= 60: 
-            match_level = 3 # Suspicious/Partial
+            match_level = 3 # Partial / Keyword Match
         else:
-            # Even if keyword matches, if SKU similarity is too low, we might not want to audit price
-            # but for now we'll allow it as match_level 3 if keyword is present.
-            match_level = 3
+            # If no master product convincingly matches, it's Noise/Unidentified
+            match_level = 0
             
         # 3. Generate Full Audit
         audit = self.generate_audit_report(listing, best_match, match_level)
@@ -305,7 +337,11 @@ class IdentificationEngine:
                 "master_product_id": None,
                 "match_level": 0,
                 "fraud_score": 0, # Unidentified is NOT a violation by default
-                "violation_details": {"unidentified": True, "note": "Listing ignored (No Nutricia match)"},
+                "violation_details": {
+                    "unidentified": True, 
+                    "item_status": "noise",
+                    "note": "Listing ignored (No deterministic match)"
+                },
                 "is_price_ok": True,
                 "is_brand_correct": True,
                 "is_publishable_ok": True,
@@ -313,7 +349,7 @@ class IdentificationEngine:
             }
 
         # 1. Attribute-Based Confidence Details
-        listing_attrs = listing.get("attributes", {})
+        listing_attrs = listing.get("attributes") or {}
         listing_attrs["title"] = listing.get("title", "")
         attr_score, attr_matches, detected_brand = self.calculate_attribute_score(listing_attrs, master_product)
         details["attribute_breakdown"] = {

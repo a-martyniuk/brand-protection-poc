@@ -44,15 +44,25 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({ product, onClos
                             )}
                             <div className="flex-1">
                                 <h2 className="text-xl font-black text-white tracking-tight mb-1">{product.title}</h2>
-                                <p className="text-sm text-slate-400">
-                                    <span className="font-bold">Vendedor:</span> {product.seller} • {product.seller_location}
-                                </p>
+                                <div className="flex items-center gap-2 text-sm text-slate-400">
+                                    <span className="font-bold">Vendedor:</span>
+                                    <span className="text-slate-200">{product.seller}</span>
+                                    {product.is_official_store && (
+                                        <span className="bg-blue-500/20 text-blue-400 text-[9px] font-black px-2 py-0.5 rounded border border-blue-500/30 uppercase tracking-tighter">
+                                            Tienda Oficial
+                                        </span>
+                                    )}
+                                    <span className="text-slate-500">• {product.seller_location}</span>
+                                </div>
                             </div>
                         </div>
                         <div className="flex items-center gap-3 flex-wrap">
                             {getMatchLevelBadge()}
                             <div className="flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-700/50 text-slate-300">
                                 <span>Stock: {product.available_stock ?? '0'}</span>
+                                {product.is_full && (
+                                    <span className="ml-1 text-yellow-400 italic">FULL</span>
+                                )}
                                 <span className="w-1 h-1 rounded-full bg-slate-500"></span>
                                 <span className={`text-[10px] ${
                                     !product.item_status || product.item_status === 'active' ? 'text-emerald-400' : 
@@ -61,6 +71,11 @@ const ProductDetailPanel: React.FC<ProductDetailPanelProps> = ({ product, onClos
                                     {product.item_status || 'active'}
                                 </span>
                             </div>
+                            {product.sold_quantity_str && (
+                                <div className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                    {product.sold_quantity_str}
+                                </div>
+                            )}
                             <a
                                 href={(() => {
                                     // 1. Priorizar URL original si existe y parece válida

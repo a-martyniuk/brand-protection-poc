@@ -49,8 +49,13 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
     });
 
     const getMatchBadge = (level: number) => {
-        const levels = ['No Ident.', 'Directo', 'Alta Similitud', 'Por Búsqueda'];
-        const colors = ['bg-slate-600/20 text-slate-400', 'bg-emerald-600/20 text-emerald-400', 'bg-blue-600/20 text-blue-400', 'bg-amber-600/20 text-amber-400'];
+        const levels = ['No Ident.', 'Exacta', 'Alta Similitud', 'Coincidencia KW'];
+        const colors = [
+            'bg-slate-600/20 text-slate-400', 
+            'bg-emerald-600/20 text-emerald-400', 
+            'bg-blue-600/20 text-blue-400', 
+            'bg-amber-600/20 text-amber-400 border border-amber-600/30'
+        ];
         return (
             <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${colors[level]}`}>
                 {levels[level]}
@@ -96,9 +101,9 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                         className="px-4 py-2 bg-slate-800 border border-white/10 rounded-xl text-sm font-bold text-slate-300 focus:outline-none focus:border-brand-500/50"
                     >
                         <option value="ALL">Todas las Coincid.</option>
-                        <option value="EAN">Match Directo</option>
+                        <option value="EAN">Exacta</option>
                         <option value="Fuzzy">Alta Similitud</option>
-                        <option value="Suspicious">Por Búsqueda</option>
+                        <option value="Suspicious">Coincidencia KW</option>
                         <option value="Unidentified">No Identificado</option>
                     </select>
                 </div>
@@ -195,7 +200,14 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                                     <div className="flex flex-col">
                                         {product.seller && product.seller !== 'N/A' ? (
                                             <>
-                                                <span className="text-xs text-slate-300 font-medium truncate max-w-[150px]">{product.seller}</span>
+                                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                                    <span className="text-xs text-slate-300 font-medium truncate max-w-[120px]">{product.seller}</span>
+                                                    {product.is_official_store && (
+                                                        <span className="flex-shrink-0 bg-blue-500/20 text-blue-400 text-[8px] font-black px-1.5 py-0.5 rounded border border-blue-500/30 uppercase tracking-tighter">
+                                                            Tienda Oficial
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <span className="text-[10px] text-slate-500">{product.seller_location !== 'N/A' ? product.seller_location : ''}</span>
                                             </>
                                         ) : <span className="text-[10px] text-slate-600 italic font-bold">Sin datos de vendedor</span>}
@@ -204,12 +216,22 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
 
                                 {/* Precio & Stock */}
                                 <div className="flex flex-col gap-1">
-                                    <span className="text-lg font-black text-emerald-400 tracking-tighter">
-                                        ${product.price.toLocaleString('es-AR')}
-                                    </span>
+                                    <div className="flex items-baseline gap-1">
+                                        <span className="text-lg font-black text-emerald-400 tracking-tighter">
+                                            ${product.price.toLocaleString('es-AR')}
+                                        </span>
+                                        {product.sold_quantity_str && (
+                                            <span className="text-[9px] text-slate-500 font-bold">{product.sold_quantity_str}</span>
+                                        )}
+                                    </div>
                                     <div className="flex flex-col gap-0.5">
                                         <div className="text-[10px] text-slate-400 font-bold uppercase flex items-center gap-1">
                                             Stock: <span className="text-white">{product.available_stock ?? '0'}</span>
+                                            {product.is_full && (
+                                                <span className="ml-1 bg-yellow-500/20 text-yellow-400 text-[8px] font-black px-1 rounded border border-yellow-500/30 uppercase tracking-tighter italic">
+                                                    FULL
+                                                </span>
+                                            )}
                                         </div>
                                         {getStatusBadge(product.item_status)}
                                     </div>

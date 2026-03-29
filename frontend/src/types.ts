@@ -24,6 +24,13 @@ export interface ProductAudit {
     available_stock?: number;
     item_status?: string; // "active" | "paused" | "closed" | "noise" | "noise_manual"
     search_keyword?: string;
+    
+    // Super Scraper Enriched Data
+    category_id?: string;
+    category_name?: string;
+    is_official_store?: boolean;
+    sold_quantity_str?: string;
+    is_full?: boolean;
 
     // Información de coincidencia y cumplimiento
     match_level: number; // 0-3 (0=unidentified, 1=EAN, 2=Fuzzy, 3=Suspicious)
