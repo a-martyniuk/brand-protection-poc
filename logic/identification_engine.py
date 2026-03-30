@@ -252,14 +252,17 @@ class IdentificationEngine:
         search_keyword = (listing.get("search_keyword") or "").lower()
         
         # 1. BRAND DETECTION: Detect which brand(s) are in the title using whole-word matching
-        # This replaces the restrictive search_keyword gate.
         detected_brands = []
-        unique_brands = sorted(list(set(mp.get("brand", "") for mp in self.master_products if mp.get("brand"))), key=len, reverse=True)
+        # Include both master brands and their sub-brands (Nutrilon, Vital, etc.)
+        search_brands = set(list(mp.get("brand", "") for mp in self.master_products if mp.get("brand")) + NUTRICIA_BRANDS)
+        unique_brands = sorted(list(search_brands), key=len, reverse=True)
         
         for brand in unique_brands:
             brand_norm = brand.lower()
             if re.search(rf"\b{re.escape(brand_norm)}\b", listing_title_norm):
                 detected_brands.append(brand_norm)
+                # Map detected sub-brands back to their master brands if possible
+                # (For now, just keeping them as detected_brands is enough for the filter)
         
         # 2. CANDIDATE SELECTION
         candidates = []
