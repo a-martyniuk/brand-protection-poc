@@ -1,18 +1,11 @@
 import pandas as pd
 import os
 from dotenv import load_dotenv
-from supabase import create_client, Client
+from logic.supabase_lite import SupabaseLite
+import requests
 
-# Load environment variables
-load_dotenv()
-
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise ValueError("Supabase credentials not found in .env file")
-
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# SupabaseLite handles the URL/KEY from .env itself
+db = SupabaseLite()
 
 def clean_boolean(val):
     if pd.isna(val):
@@ -66,12 +59,16 @@ def ingest_data(file_path):
 
     print(f"Prepared {len(records)} records for insertion/upsert.")
     
-    # Probe the table to see which columns exist to avoid "PGRST204" (Column not found)
+    # Probe the table to see which columns exist
     try:
-        sample = supabase.table('master_products').select("*").limit(1).execute()
-        existing_cols = set(sample.data[0].keys()) if sample.data else set()
+        endpoint = f"{db.url}/rest/v1/master_products?select=*&limit=1"
+        res_probe = requests.get(endpoint, headers=db.headers)
+        res_probe.raise_for_status()
+        sample_data = res_probe.json()
+        existing_cols = set(sample_data[0].keys()) if sample_data else set()
         print(f"Detected columns in DB: {existing_cols}")
-    except:
+    except Exception as e:
+        print(f"Probe failed: {e}")
         existing_cols = None
 
     # Batch insert to avoid timeouts
@@ -79,16 +76,15 @@ def ingest_data(file_path):
     for i in range(0, len(records), batch_size):
         batch = records[i:i + batch_size]
         
-        # Filter batch records to only include existing columns if probe was successful
         if existing_cols:
-            filtered_batch = []
-            for r in batch:
-                filtered_batch.append({k: v for k, v in r.items() if k in existing_cols})
-            batch = filtered_batch
+            batch = [{k: v for k, v in r.items() if k in existing_cols} for r in batch]
 
         try:
-            # We use upsert if 'ean' is unique.
-            data, count = supabase.table('master_products').upsert(batch, on_conflict='ean').execute()
+            endpoint = f"{db.url}/rest/v1/master_products?on_conflict=ean"
+            headers = db.headers.copy()
+            headers["Prefer"] = "resolution=merge-duplicates"
+            res_upsert = requests.post(endpoint, json=batch, headers=headers)
+            res_upsert.raise_for_status()
             print(f"Upserted batch {i // batch_size + 1}")
         except Exception as e:
             print(f"Error inserting batch: {e}")

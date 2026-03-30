@@ -2,21 +2,19 @@
 
 # --- Brand Config ---
 NUTRICIA_BRANDS = [
-    "nutrilon", "vital", "neocate", "fortisip", "fortini", "nutrison", "peptisorb", "diasip", "loprofin",
-    "infatrini", "ketocal", "souvenaid", "cubitan", "mct oil", "monogen", "liquigen", "secalbum", 
+    "nutricia", "bago", "nutrilon", "vital", "neocate", "fortisip", "fortini", "nutrison", "peptisorb", "diasip", "loprofin",
+    "infatrini", "ketocal", "souvenaid", "cubitan", "mct", "mct oil", "monogen", "liquigen", "secalbum", 
     "espesan", "gmpro", "galactomin", "ketoblend", "maxamum", "lophlex", "ls baby", "fortifit", 
-    "duocal", "polimerosa", "advanta", "pku", "flocare", "anamix", "l'serina", "serina", "profutura"
+    "duocal", "polimerosa", "advanta", "pku", "flocare", "anamix", "l'serina", "serina", "profutura", "kas"
 ]
 
 EXTERNAL_MIMICS = ["vitalcan", "vitalis", "vitalife"]
 
 # --- Classification Config ---
 NOISE_CATEGORIES = [
-    "Accesorios para Vehículos", "Computación", "Hogar, Muebles y Jardín", 
-    "Animales y Mascotas", "Belleza y Cuidado Personal", "Industrias y Oficinas",
-    "Electrónica, Audio y Video", "Celulares y Teléfonos", "Herramientas", "Construcción",
-    "Libros, Revistas y Comics", "Música, Películas y Series", "Juegos y Juguetes", 
-    "Antigüedades y Colecciones", "Otras categorías"
+    "libros", "revistas", "comics", "música", "musica", "películas", "peliculas", "series", "juegos", "juguetes",
+    "computación", "hogar", "muebles", "animales", "mascotas", "belleza", "oficinas", "electrónica", "herramientas", "construcción",
+    "antigüedades", "colecciones", "vehículos", "motos", "autos", "accesorios para vehículos"
 ]
 
 # --- Hard Rejection Keywords ---
@@ -39,9 +37,9 @@ EXCLUSION_KEYWORDS = [
     # Furniture & Office
     "escritorio", "mesa", "silla", "mueble", "repisa", "estante", "oficina", "biblioteca", "rack", "repuesto", "puerta", "trasera", "delantera", "baul", "gol trend", "voyage",
     # Media & Books
-    "libro", "tomo", "geometria", "contables", "manual", "tratado", "diccionario", "enciclopedia", "usado", "novela", "editorial", "tapa blanda", "tapa dura", "inedite", "nabu pr", " Nabú", "autor", "escritor", "postal", "cd ", "disco", "musica", "artista", "sencillo", "pista", "una historia de", "atlas de rutas",
+    "libro", "tomo", "geometria", "contables", "manual", "tratado", "diccionario", "enciclopedia", "usado", "novela", "editorial", "tapa blanda", "tapa dura", "inedite", "nabu pr", " Nabú", "autor", "escritor", "postal", "cd ", "disco", "musica", "artista", "sencillo", "pista", "una historia de", "atlas de rutas", "ediciones macchi", "libros del arbol", "literatura", "ensayo", "poesia", "libro de", "biblioteca", "cuaderno", "revista", "comic", "manga", "facultad", "universidad", "estudiante", "apunte", "guia de estudio", "guia para",
     # Fortini/Specific Name Noise
-    "pietro fortini", "annalisa fortini", "fortini brown", "franco fortini", "sara fortini", "padre", "cristocentrica", "educacion cristocentrica", "vaticano", "papa", "religioso", "teologia", "renacimiento", "venecia", "arte y vida", "bloodlines", "venetian", "galaxian", "salumagia", "cataclismo", "mamimiau", "pastrana", "usa import cd", "ponce padilla", "defensa de la constitución", "ordenanza municipal", "baraja de cartas",
+    "pietro fortini", "annalisa fortini", "fortini brown", "franco fortini", "sara fortini", "padre", "cristocentrica", "educacion cristocentrica", "vaticano", "papa", "religioso", "teologia", "renacimiento", "venecia", "arte y vida", "bloodlines", "venetian", "galaxian", "salumagia", "cataclismo", "mamimiau", "pastrana", "usa import cd", "ponce padilla", "defensa de la constitución", "ordenanza municipal", "baraja de cartas", "contables", "fowler", "senese", "newton", "lattuca", "ediciones macchi"
     # Construction & Chemicals
     "impermeabilizante", "sella fisuras", "tapa goteras", "gotita", "voligoma", "pegamento", "sellador", "caucho goma", "terrazas", "liquitech", "floculante", "mak floc", "piscina", "pileta", "cloro", "compresor", "michelin", "film autoadherente", "asfalto", "brea", "parches autoadhesivos", "glacoxan", "hormiga", "insecticida", "herbicida", "acaros", "alginato sodio", "gluconolactato calcio", "gastronomia molecular", "percarbonato", "jabón cítrico", "blanqueador",
     # Health/Pharma (Out of Scope)

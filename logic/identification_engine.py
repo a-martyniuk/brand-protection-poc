@@ -1,7 +1,16 @@
 import re
 import logging
+import sys
+
+# Ensure UTF-8 output on Windows
+if sys.stdout.encoding != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except:
+        pass
+
 from thefuzz import fuzz
-from logic.supabase_handler import SupabaseHandler
+from logic.supabase_lite import SupabaseLite
 from logic.constants import (
     NUTRICIA_BRANDS, EXTERNAL_MIMICS, NOISE_CATEGORIES, 
     EXCLUSION_KEYWORDS, VOLUMETRIC_TOLERANCE, LIQUID_DENSITY_MULTIPLIER
@@ -13,7 +22,7 @@ logger = logging.getLogger("IdentificationEngine")
 
 class IdentificationEngine:
     def __init__(self):
-        self.db = SupabaseHandler()
+        self.db = SupabaseLite()
         # Cache master products for performance
         self.master_products = self.db.get_master_products()
         logger.info(f"Engine initialized with {len(self.master_products)} master products.")
@@ -167,15 +176,24 @@ class IdentificationEngine:
 
     def _check_hard_exclusions(self, title_lower, category):
         """Checks if the product should be rejected immediately based on keywords or category."""
-        # 1. Keyword Exclusion
-        if any(kw in title_lower for kw in EXCLUSION_KEYWORDS):
-            return True, "exclusion_keyword"
-            
-        # 2. Category Exclusion
-        if any(nc.lower() in category.lower() for nc in NOISE_CATEGORIES):
-            # Special bypass for Nutricia-like items in health categories
-            if not any(b in title_lower for b in ["nutrilon", "vital", "neocate", "fortisip", "fortini"]):
-                return True, "noise_category"
+        # 1. Category Exclusion (Strict: ABSOLUTE rejection for known noise categories)
+        norm_category = self.normalize_text(category)
+        for nc in NOISE_CATEGORIES:
+            if nc in norm_category:
+                logger.info(f"  [REJECT] Category absolute exclusion: {nc} (matched in {norm_category})")
+                return True, f"noise_category_strict({nc})"
+
+        # 2. Keyword Exclusion
+        for kw in EXCLUSION_KEYWORDS:
+            if kw in title_lower:
+                # Exempt Nutricia brands from general keyword exclusions (like 'farmacia')
+                # EXCEPT for explicit noise markers (books, editions, etc)
+                is_strict_noise = any(sn in kw for sn in ["libro", "tomo", "edicion", "editorial", "novela", "manual", "cd ", "disco"])
+                if is_strict_noise:
+                    return True, f"exclusion_keyword_strict({kw})"
+                    
+                if not any(b in title_lower for b in NUTRICIA_BRANDS):
+                    return True, f"exclusion_keyword({kw})"
         
         return False, None
 
@@ -196,15 +214,17 @@ class IdentificationEngine:
         matches = 0
         title_lower = listing_attrs.get("title", "").lower()
         category = listing_attrs.get("category", "")
-
-        # 1. Hard Exclusions (REMOVED as per user request)
-        # is_noise, reason = self._check_hard_exclusions(title_lower, category)
-        # if is_noise:
-        #    return 0, 0, l_brand
-
-        # 2. Brand Match
+        
+        # 0. Brand Detection (Early for audit reporting)
         attr_brand = listing_attrs.get("brand") or listing_attrs.get("marca")
         l_brand = self._detect_brand(title_lower, attr_brand)
+
+        # 1. Hard Exclusions (Restored for noise reduction)
+        is_noise, reason = self._check_hard_exclusions(title_lower, category)
+        if is_noise:
+            return 0, 0, l_brand
+
+        # 2. Brand Match
         m_brand = (master_product.get("brand") or "").lower()
 
         if l_brand and m_brand:
@@ -251,6 +271,13 @@ class IdentificationEngine:
         listing_title_norm = self.normalize_text(listing.get("title", ""))
         search_keyword = (listing.get("search_keyword") or "").lower()
         
+        # 0. Early Noise Detection
+        listing_category = listing.get("category_name") or listing.get("category") or ""
+        is_noise, reason = self._check_hard_exclusions(listing_title_norm, listing_category)
+        if is_noise:
+            logger.info(f"  [REJECT] Early noise detection: {listing_title_norm} ({reason})")
+            return self.generate_audit_report(listing, None, 0)
+
         # 1. BRAND DETECTION: Detect which brand(s) are in the title using whole-word matching
         detected_brands = []
         # Include both master brands and their sub-brands (Nutrilon, Vital, etc.)

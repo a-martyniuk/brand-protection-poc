@@ -1,26 +1,43 @@
 import asyncio
-from logic.supabase_handler import SupabaseHandler
+import requests
+import sys
+
+# Ensure UTF-8 output on Windows
+if sys.stdout.encoding != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except:
+        pass
+
+from logic.supabase_lite import SupabaseLite
 from logic.identification_engine import IdentificationEngine
 
 async def refresh_audit():
     print("Starting Audit Refresh...")
-    db = SupabaseHandler()
+    db = SupabaseLite()
     engine = IdentificationEngine()
     
     # 1. Fetch all listings from DB (handling pagination for > 1000 rows)
-    print("Fetching active listings from 'meli_listings' in batches...")
+    print("Fetching active listings from 'meli_listings' via SupabaseLite...")
     listings = []
     batch_size = 1000
     offset = 0
     
     while True:
-        res = db.supabase.table("meli_listings").select("*").range(offset, offset + batch_size - 1).execute()
-        batch = res.data
-        listings.extend(batch)
-        print(f"Loaded {len(listings)} listings...")
-        if len(batch) < batch_size:
+        # Use requests to fetch data through REST API
+        endpoint = f"{db.url}/rest/v1/meli_listings?select=*&offset={offset}&limit={batch_size}"
+        try:
+            res = requests.get(endpoint, headers=db.headers)
+            res.raise_for_status()
+            batch = res.json()
+            listings.extend(batch)
+            print(f"Loaded {len(listings)} listings...")
+            if len(batch) < batch_size:
+                break
+            offset += batch_size
+        except Exception as e:
+            print(f"Error fetching listings: {e}")
             break
-        offset += batch_size
     
     print(f"Total listings loaded: {len(listings)}")
     
@@ -48,17 +65,44 @@ async def refresh_audit():
             noise_ids.append(l["id"])
     
     # 3. Batch Update Listings (Status)
+    active_ids = [a["listing_id"] for a in audit_records if a["match_level"] > 0]
+    
     if noise_ids:
         print(f"Moving {len(noise_ids)} items to Noise status...")
-        # Update status in batches of 100 to avoid long query strings
         for i in range(0, len(noise_ids), 100):
             batch = noise_ids[i:i+100]
-            db.supabase.table("meli_listings").update({"item_status": "noise"}).in_("id", batch).execute()
+            endpoint = f"{db.url}/rest/v1/meli_listings?id=in.({','.join([str(id) for id in batch])})"
+            try:
+                requests.patch(endpoint, json={"item_status": "noise"}, headers=db.headers)
+            except Exception as e:
+                print(f"Error updating noise items: {e}")
+                
+    if active_ids:
+        print(f"Marking {len(active_ids)} items as Active (Audited)...")
+        for i in range(0, len(active_ids), 100):
+            batch = active_ids[i:i+100]
+            endpoint = f"{db.url}/rest/v1/meli_listings?id=in.({','.join([str(id) for id in batch])})"
+            try:
+                requests.patch(endpoint, json={"item_status": "active"}, headers=db.headers)
+            except Exception as e:
+                print(f"Error updating active items: {e}")
     
     # 4. Batch Update Audit Table
     if audit_records:
         print(f"Syncing {len(audit_records)} updated audit results to Supabase...")
-        db.log_compliance_audit(audit_records)
+        # Since log_compliance_audit uses upsert logic, we can try to use db method if it exists or use requests
+        import json
+        for i in range(0, len(audit_records), 100):
+            batch = audit_records[i:i+100]
+            endpoint = f"{db.url}/rest/v1/compliance_audit"
+            # Using Prefer: resolution=merge for upsert behavior
+            headers = db.headers.copy()
+            headers["Prefer"] = "resolution=merge"
+            try:
+                requests.post(endpoint, json=batch, headers=headers)
+            except Exception as e:
+                print(f"Error syncing audit records: {e}")
+        
         print("[OK] Audit refresh complete. New scores are now live in the Dashboard.")
     else:
         print("No listings found to audit.")

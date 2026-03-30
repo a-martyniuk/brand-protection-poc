@@ -29,7 +29,8 @@ class MeliBrowserDiscovery:
     def __init__(self, pages_per_query=2):
         self.db = SupabaseLite()
         self.pages_per_query = pages_per_query
-        self.user_data_dir = os.path.join(os.getcwd(), "user_data", "discovery_session")
+        import time
+        self.user_data_dir = os.path.join(os.getcwd(), "user_data", f"discovery_session_{int(time.time())}")
         os.makedirs(self.user_data_dir, exist_ok=True)
         
         # Extended keywords from nomenclature exceptions

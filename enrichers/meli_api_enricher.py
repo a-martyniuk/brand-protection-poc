@@ -1,9 +1,17 @@
 import os
 import json
 import requests
+import sys
 from datetime import datetime
-from logic.supabase_handler import SupabaseHandler
+from logic.supabase_lite import SupabaseLite
 import time
+
+# Ensure UTF-8 output on Windows
+if sys.stdout.encoding != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except:
+        pass
 
 class MeliAPIEnricher:
     """
@@ -12,7 +20,7 @@ class MeliAPIEnricher:
     """
     
     def __init__(self, batch_size=50, delay_between_requests=0.5):
-        self.db = SupabaseHandler()
+        self.db = SupabaseLite()
         self.batch_size = batch_size
         self.delay = delay_between_requests
         self.status_file = "enricher_status.json"
@@ -103,11 +111,14 @@ class MeliAPIEnricher:
                 details = self.get_item_details(meli_id)
                 
                 # Update database and log
-                if details and details.get('ean'):
+                if details:
                     self.update_product(product['id'], details)
-                    ean = details.get('ean')
+                    ean = details.get('ean', 'N/A')
                     brand = details.get('brand', 'N/A')
-                    print(f"  [OK] Enriched - EAN: {ean}, Brand: {brand}")
+                    seller = details.get('seller_name', 'N/A')
+                    stock = details.get('available_quantity', 0)
+                    
+                    print(f"  [OK] Enriched - EAN: {ean}, Brand: {brand}, Seller: {seller}, Stock: {stock}")
                     
                     self.log_product(meli_id, "enriched", ean=ean)
                     self.progress["enriched"] += 1
@@ -144,32 +155,21 @@ class MeliAPIEnricher:
     def get_products_to_enrich(self, limit=None):
         """Get products that need enrichment and are NOT noise."""
         try:
-            all_products = []
-            page_size = 1000
-            start = 0
+            # Using SupabaseLite's requests-based fetching
+            endpoint = f"{self.db.url}/rest/v1/meli_listings?select=*&item_status=neq.noise&item_status=neq.noise_manual"
+            # We want those where ean or brand or seller is missing
+            # PostgREST syntax for OR logic: or=(ean_published.is.null,brand_detected.is.null,seller_name.is.null)
+            endpoint += "&or=(ean_published.is.null,brand_detected.is.null,seller_name.is.null)"
             
-            while True:
-                response = self.db.supabase.table("compliance_audit").select(
-                    "meli_listings!inner(*)"
-                ).or_("match_level.gt.0,fraud_score.gt.0").range(start, start + page_size - 1).execute()
+            if limit:
+                endpoint += f"&limit={limit}"
                 
-                data = response.data
-                if not data:
-                    break
-                    
-                for row in data:
-                    listing = row.get("meli_listings")
-                    if listing and isinstance(listing, dict):
-                        # Check nulls in ean or brand, and ensure not manual noise
-                        if (not listing.get("ean_published") or not listing.get("brand_detected")) and \
-                           listing.get("item_status") not in ["noise", "noise_manual"]:
-                            all_products.append(listing)
-                            
-                if len(data) < page_size:
-                    break
-                start += page_size
-
-            return all_products[:limit] if limit else all_products
+            response = requests.get(endpoint, headers=self.db.headers)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"Error fetching products: {e}")
+            return []
         except Exception as e:
             print(f"Error fetching products: {e}")
             return []
@@ -177,40 +177,60 @@ class MeliAPIEnricher:
     def get_item_details(self, meli_id):
         """
         Get item details from MercadoLibre API.
-        Handles both catalog products and regular items.
-        
-        Args:
-            meli_id: MercadoLibre item ID (e.g., MLA123456)
-            
-        Returns:
-            dict with 'ean', 'brand', and other attributes
+        Prioritizes /items/ endpoint as it is more likely to be public.
         """
+        # Always use cleaned ID for API calls (handle MLA prefix)
+        clean_id = meli_id.upper()
+        if not clean_id.startswith("MLA"):
+            clean_id = f"MLA{clean_id}"
+
         try:
-            # Try catalog endpoint first (for official products)
-            catalog_url = f"https://api.mercadolibre.com/products/{meli_id}"
+            # 1. Prepare endpoints (Priority: /items/ for stock/seller name)
+            endpoints = [
+                f"https://api.mercadolibre.com/items/{clean_id}",
+                f"https://api.mercadolibre.com/products/{clean_id}"
+            ]
             
-            headers = {}
-            if self.access_token:
-                headers["Authorization"] = f"Bearer {self.access_token}"
-            
-            response = requests.get(catalog_url, headers=headers, timeout=10)
-            
-            # If catalog fails with 404, try items endpoint
-            if response.status_code == 404:
-                item_url = f"https://api.mercadolibre.com/items/{meli_id}"
-                response = requests.get(item_url, headers=headers, timeout=10)
-            
-            response.raise_for_status()
-            data = response.json()
+            data = None
+            for url in endpoints:
+                headers = {}
+                if self.access_token:
+                    headers["Authorization"] = f"Bearer {self.access_token}"
+                
+                response = requests.get(url, headers=headers, timeout=10)
+                
+                # If 401 or 403, try WITHOUT token
+                if response.status_code in [401, 403]:
+                    print(f"    [INFO] Auth issue on {url.split('/')[-2]}. Retrying without token...")
+                    response = requests.get(url, timeout=10)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    break # Success!
+                elif response.status_code == 404:
+                    continue # Try next endpoint
+                else:
+                    print(f"    [DEBUG] {url.split('/')[-2]} failed with {response.status_code}")
+
+            if not data:
+                return None
             
             # Extract relevant info
             details = {
                 "ean": None,
                 "brand": None,
+                "seller_id": data.get("seller_id"),
+                "seller_name": None,
+                "available_quantity": data.get("available_quantity", 0),
+                "sold_quantity": data.get("sold_quantity", 0),
                 "attributes": {}
             }
             
-            # Parse attributes (works for both catalog and items)
+            # 2. Get Seller Name if seller_id is found
+            if details["seller_id"]:
+                details["seller_name"] = self.get_seller_name(details["seller_id"])
+            
+            # 3. Parse attributes (works for both catalog and items)
             attributes = data.get("attributes", [])
             
             # For catalog products, attributes might be in a different structure
@@ -250,9 +270,25 @@ class MeliAPIEnricher:
         except requests.exceptions.RequestException as e:
             print(f"    API Error: {e}")
             return None
+
+    def get_seller_name(self, seller_id):
+        """Fetch seller name from /users/{id} endpoint."""
+        try:
+            url = f"https://api.mercadolibre.com/users/{seller_id}"
+            headers = {}
+            if self.access_token:
+                headers["Authorization"] = f"Bearer {self.access_token}"
+            
+            response = requests.get(url, headers=headers, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("nickname") or data.get("permalink", "").split("/")[-1]
+            return "N/A"
+        except Exception:
+            return "N/A"
     
     def update_product(self, product_id, details):
-        """Update product with enriched data."""
+        """Update product with enriched data using SupabaseLite (requests)."""
         try:
             update_data = {}
             
@@ -262,20 +298,31 @@ class MeliAPIEnricher:
             if details.get('brand'):
                 update_data['brand_detected'] = details['brand']
             
-            # Update attributes
-            if details.get('attributes'):
-                current = self.db.supabase.table("meli_listings").select("attributes").eq("id", product_id).execute()
-                current_attrs = current.data[0]['attributes'] if current.data else {}
+            if details.get('seller_name') and details['seller_name'] != 'N/A':
+                update_data['seller_name'] = details['seller_name']
                 
-                # Merge attributes
-                current_attrs.update(details['attributes'])
-                update_data['attributes'] = current_attrs
+            if details.get('seller_id'):
+                update_data['seller_id'] = str(details['seller_id'])
+                
+            if details.get('available_quantity') is not None:
+                update_data['available_quantity'] = details['available_quantity']
+                
+            if details.get('sold_quantity'):
+                update_data['sold_quantity_str'] = str(details['sold_quantity'])
+            
+            # Update attributes (skipping complex merge for now in Lite version to keep it simple)
+            # update_data['attributes'] = ... 
             
             # Mark as enriched
-            update_data['enriched_at'] = 'now()'
+            update_data['enriched_at'] = datetime.now().isoformat()
             
             if update_data:
-                self.db.supabase.table("meli_listings").update(update_data).eq("id", product_id).execute()
+                endpoint = f"{self.db.url}/rest/v1/meli_listings?id=eq.{product_id}"
+                response = requests.patch(endpoint, json=update_data, headers=self.db.headers)
+                response.raise_for_status()
+                
+        except Exception as e:
+            print(f"    Error updating product: {e}")
                 
         except Exception as e:
             print(f"    Error updating product: {e}")

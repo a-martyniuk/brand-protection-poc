@@ -48,9 +48,13 @@ def main():
         ("SUPER DISCOVERY (PHASE 1)", [sys.executable, "scripts/discover_listings.py"]),
         # Identification uses the enriched data to filter noise immediately
         ("IDENTIFICATION & FILTERING (PHASE 2)", [sys.executable, "refresh_audit.py"]),
-        # Phase 3 (Enrichment) now much faster as it only targets qualified candidates
-        ("DEEP ENRICHMENT (PHASE 3)", [sys.executable, "enrichers/meli_api_enricher.py", "100"]), 
-        ("FINAL COMPLIANCE AUDIT", [sys.executable, "refresh_audit.py"])
+        # Phase 3 (Enrichment) - API Fast Track
+        ("API ENRICHMENT (PHASE 3)", [sys.executable, "enrichers/meli_api_enricher.py", "200"]), 
+        
+        # Phase 4 (Enrichment) - Browser Deep Track (for EANs, Stock, and Sellers)
+        ("BROWSER ENRICHMENT (PHASE 4)", [sys.executable, "enrichers/product_enricher.py", "50"]), 
+        
+        ("FINAL AUDIT REFRESH", [sys.executable, "refresh_audit.py"])
     ]
     
     summary = []

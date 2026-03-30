@@ -6,6 +6,13 @@ import logging
 from pathlib import Path
 from datetime import datetime
 
+# Ensure UTF-8 output on Windows to avoid UnicodeEncodeError in console
+if sys.stdout.encoding != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except:
+        pass
+
 # Add project root to sys.path to find 'logic' package
 project_root = str(Path(__file__).resolve().parent.parent)
 if project_root not in sys.path:
@@ -15,7 +22,7 @@ import random
 import re
 import requests
 from playwright.async_api import async_playwright
-from logic.supabase_handler import SupabaseHandler
+from logic.supabase_lite import SupabaseLite
 
 # Setup logging
 logging.basicConfig(
@@ -32,7 +39,7 @@ class ProductEnricher:
     """
     
     def __init__(self, batch_size=1, delay_between_requests=5):
-        self.db = SupabaseHandler()
+        self.db = SupabaseLite()
         self.batch_size = batch_size
         self.delay = delay_between_requests
         self.status_file = "enricher_status.json"
@@ -79,7 +86,7 @@ class ProductEnricher:
         """
         Enrich products missing EAN or detailed specs.
         """
-        logger.info("🚀 ENRICHER VERSION: 2.2 (Robustness + Logging)")
+        logger.info("ENRICHER VERSION: 2.2 (Robustness + Logging)")
         # Get products needing enrichment
         products = self.get_products_to_enrich(limit)
         
@@ -93,14 +100,14 @@ class ProductEnricher:
             failed=0
         )
         
-        logger.info(f"🔍 Found {len(products)} products to enrich")
+        logger.info(f"Found {len(products)} products to enrich")
         
         if not products:
-            print("✓ No products need enrichment")
+            print("No products need enrichment")
             self.update_status(running=False)
             return
         
-        user_data_dir = os.path.join(os.getcwd(), "user_data", "manual_session_hotspot")
+        user_data_dir = os.path.join(os.getcwd(), "user_data", f"temp_enrich_{int(time.time())}")
         os.makedirs(user_data_dir, exist_ok=True)
         
         async with async_playwright() as p:
@@ -133,8 +140,8 @@ class ProductEnricher:
                         
                         logger.info(f"[{i+1}/{len(products)}] Processing {meli_id}...")
                         
-                        # Scrape detail page
-                        details = await self.scrape_product_details(page_for_task, url)
+                        # Scrape detail page with resilient fallback
+                        details = await self.scrape_product_details(page_for_task, url, meli_id=meli_id)
                         
                         # Update database and log
                         if details and (details.get('ean') or details.get('specs') or details.get('available_quantity') is not None or details.get('item_status')):
@@ -154,24 +161,25 @@ class ProductEnricher:
                             
                             # High-Visibility Output
                             item_status = details.get('item_status', 'active')
-                            status_icon = "🟢" if item_status == "active" else "🟡" if item_status == "paused" else "🔴"
-                            print(f"  ├─ Seller: {seller}")
-                            print(f"  ├─ Stock:  {stock} units")
-                            print(f"  ├─ Brand:  {brand} | Category: {category}")
-                            print(f"  ├─ Status: {status_icon} {item_status} ({status_desc if status_desc else 'Publicación activa'})")
-                            print(f"  └─ EAN:    {ean} | Sold: {sold} | Cond: {meta.get('condition', 'new')}")
+                            status_icon = "OK" if item_status == "active" else "PAUSED" if item_status == "paused" else "ERR"
+                            print(f"  |- Seller: {seller}")
+                            print(f"  |- Stock:  {stock} units")
+                            print(f"  |- Brand:  {brand} | Category: {category}")
+                            print(f"  |- Status: {status_icon} {item_status} ({status_desc if status_desc else 'Publicacion activa'})")
+                            print(f"  |- EAN:    {ean} | Sold: {sold} | Cond: {meta.get('condition', 'new')}")
                             
                             self.log_product(meli_id, url, "enriched", ean=ean, stock=stock)
                             self.progress["enriched"] += 1
                         else:
-                            print(f"  └─ ⚠ {meli_id} - No extra data found")
+                            print(f"  |- ! {meli_id} - No extra data found")
                             self.log_product(meli_id, url, "no_data")
                         
                         self.progress["processed"] += 1
                         self.update_status()
                         
                     except Exception as e:
-                        print(f"  ✗ {meli_id} Error: {e}")
+                        logger.error(f"  [ERROR] {meli_id}: {e}")
+                        print(f"  X {meli_id} Error: {e}")
                         self.log_product(meli_id, url, "failed", error=str(e))
                         self.progress["failed"] += 1
 
@@ -204,40 +212,28 @@ class ProductEnricher:
         print("=" * 80)
     
     def get_products_to_enrich(self, limit=None):
-        """
-        Get products that need enrichment.
-        Now fetches via compliance_audit to ensure we only enrich NON-NOISE matched items.
-        """
+        """Get products that need enrichment using SupabaseLite (requests)."""
         try:
-            all_products = []
-            page_size = 1000
-            start = 0
+            # Fetch products matched in compliance_audit where ean or brand or seller is missing
+            # Only target items that passed the audit (item_status = active)
+            endpoint = f"{self.db.url}/rest/v1/meli_listings?select=*&item_status=eq.active"
+            # Prioritize those missing critical audit data
+            endpoint += "&or=(ean_published.is.null,brand_detected.is.null,seller_name.is.null)"
             
-            while True:
-                response = self.db.supabase.table("compliance_audit").select(
-                    "meli_listings!inner(*)"
-                ).or_("match_level.gt.0,fraud_score.gt.0").range(start, start + page_size - 1).execute()
+            if limit:
+                endpoint += f"&limit={limit}"
                 
-                data = response.data
-                if not data:
-                    break
-                
-                for row in data:
-                    listing = row.get("meli_listings")
-                    if listing and isinstance(listing, dict):
-                        # Extra safeguard: ensure not manually marked as noise
-                        if listing.get("item_status") not in ["noise", "noise_manual"]:
-                            all_products.append(listing)
-                            
-                if len(data) < page_size:
-                    break
-                    
-                start += page_size
-                
+            response = requests.get(endpoint, headers=self.db.headers)
+            response.raise_for_status()
+            all_products = response.json()
+            
             # Sort locally by last_enriched_at (nulls first -> oldest enriched first)
             all_products.sort(key=lambda x: x.get("last_enriched_at") or "1970-01-01T00:00:00")
             
-            return all_products[:limit] if limit else all_products
+            return all_products
+        except Exception as e:
+            logger.error(f"Error fetching products: {e}")
+            return []
         except Exception as e:
             print(f"Error fetching products: {e}")
             return []
@@ -245,22 +241,27 @@ class ProductEnricher:
     def clean_url(self, url):
         """
         Clean tracking URLs and extract actual product URL.
+        Now preserves catalog /p/ links and other valid permalinks.
         """
-        if not url or url == 'N/A':
+        if not url or url == 'N/A' or url == 'None':
             return None
             
         import re
         
-        # Skip or fix tracking URLs (click1.mercadolibre.com)
+        # 1. Skip or fix tracking URLs (click1.mercadolibre.com)
         if 'click1.mercadolibre.com' in url or 'mclics' in url:
-            # Try to extract MLA ID from anywhere in the string
             mla_match = re.search(r'MLA-?(\d+)', url)
             if mla_match:
                 mla_id = mla_match.group(1)
                 return f"https://articulo.mercadolibre.com.ar/MLA-{mla_id}"
-            return None # Skip if no ID found
+            return None
         
-        # Normalize any MLA URL to articulo version for better resilience
+        # 2. If it's already a valid mercadolibre URL, keep it
+        if 'mercadolibre.com.ar' in url:
+            # Special check: If it's a catalog redirect, keep it!
+            return url
+            
+        # 3. Last fallback: normalize to standard articulo link
         mla_match = re.search(r'MLA-?(\d+)', url)
         if mla_match:
             mla_id = mla_match.group(1)
@@ -268,10 +269,34 @@ class ProductEnricher:
             
         return url
     
-    async def scrape_product_details(self, page, url):
+    async def scrape_product_details(self, page, url, meli_id=None):
         """
-        Scrape product detail page for EAN and specifications.
+        Scrapes a MELI product page for seller and stock info.
+        Uses a fallback mechanism: 1. Permalink -> 2. Catalog (/p/) -> 3. Standard Artículo URL
         """
+        urls_to_try = []
+        clean_p = self.clean_url(url)
+        if clean_p: urls_to_try.append(clean_p)
+        
+        if meli_id:
+            catalog_id = meli_id.replace('MLA', '')
+            urls_to_try.append(f"https://www.mercadolibre.com.ar/p/MLA{catalog_id}")
+            urls_to_try.append(f"https://articulo.mercadolibre.com.ar/MLA-{catalog_id}")
+            
+        # Deduplicate while preserving order
+        urls_to_try = list(dict.fromkeys(urls_to_try))
+        
+        details = None
+        for attempt_url in urls_to_try:
+            details = await self._perform_navigation_and_scrape(page, attempt_url)
+            if details and not details.get('is_error'):
+                return details
+            print(f"  ⚠ Failed to scrap {attempt_url}. Trying next...")
+            
+        return details
+
+    async def _perform_navigation_and_scrape(self, page, url):
+        """Internal logic for a single navigation attempt."""
         # Initialize default structure
         details = {
             "ean": None,
@@ -288,39 +313,26 @@ class ProductEnricher:
         }
         
         try:
-            clean_url = self.clean_url(url)
-            if not clean_url:
-                return None
-                
-            await page.goto(clean_url, wait_until="domcontentloaded", timeout=30000)
+            # Try to navigate with a reasonable timeout
+            response = await page.goto(url, wait_until="domcontentloaded", timeout=30000)
             
+            # Check for 404 or page-not-found markers
+            if not response or response.status == 404:
+                return {"is_error": True, "status": 404}
+            
+            if await page.locator("text=Parece que esta página no existe").count() > 0:
+                return {"is_error": True, "status": 404}
+                
             # Bot/Login Wall / Redirected Detection
-            if any(p in page.url for p in ["account-verification", "negative_traffic", "login", "auth", "mercadolibre.com.ar/#", "mercadolibre.com.ar/$"]):
+            if any(p in page.url for p in ["account-verification", "negative_traffic", "login", "auth"]):
                 logger.info(f"    ⚠ Redirection detected: {page.url}")
-                # If it's a "negative traffic" or "account verification" redirect, it's restricted/closed
                 if "negative_traffic" in page.url or "account-verification" in page.url:
                     details["item_status"] = "paused"
-                    details["description"] = f"Restricted: {page.url}"
                     return details
                 
-                # If it's a general login wall, we might want to pause
                 print("\n" + "!"*80 + "\n🛑 BLOQUEO/LOGIN: Completa el login/captcha en Chrome y presiona ENTER...")
                 await asyncio.get_event_loop().run_in_executor(None, input, "Presiona ENTER para reanudar...")
-                return await self.scrape_product_details(page, url)
-
-            # Wait for content
-            try:
-                winner = await page.wait_for_selector('.andes-table__row, .ui-pdp-specs__table__row, .ui-pdp-buybox__quantity__available, .ui-pdp-message', timeout=15000)
-                class_handle = await winner.get_property('className')
-                class_str = str(await class_handle.json_value())
-                if 'ui-pdp-message' in class_str:
-                    msg_text = await winner.inner_text()
-                    details["specs"]["_item_status"] = "unavailable"
-                    details["description"] = msg_text
-                    # Still try API fallback even if unavailable in DOM
-            except:
-                print(f"    ⚠ Timeout/Partial load for {url}")
-                # Continue to API fallback
+                return await self._perform_navigation_and_scrape(page, url)
             
             # Extract from DOM
             dom_data = await page.evaluate(r"""
@@ -495,15 +507,12 @@ class ProductEnricher:
         try:
             update_data = {}
             
-            # If no brand is detected, we mark it as 'Unknown' so it's not re-scraped next time
+            # Brand detection handling
             brand_to_store = details.get('specs', {}).get('brand')
-            current_brand_query = self.db.supabase.table("meli_listings").select("brand_detected").eq("id", product_id).execute()
-            current_brand = current_brand_query.data[0]['brand_detected'] if current_brand_query.data else None
-            
-            if not current_brand:
-                update_data['brand_detected'] = brand_to_store if brand_to_store else 'Unknown'
-            elif brand_to_store:
+            if brand_to_store:
                 update_data['brand_detected'] = brand_to_store
+            else:
+                update_data['brand_detected'] = 'Unknown'
                 
             if details.get('ean'):
                 update_data['ean_published'] = details['ean']
@@ -533,9 +542,16 @@ class ProductEnricher:
                 
             # Update attributes with all specs, description, variations, and advanced metadata
             if details.get('specs') or details.get('description') or details.get('variations_data') or details.get('metadata'):
-                # Fetch current attributes
-                current = self.db.supabase.table("meli_listings").select("attributes").eq("id", product_id).execute()
-                current_attrs = current.data[0]['attributes'] if current.data else {}
+                # Fetch current attributes using requests
+                endpoint_select = f"{self.db.url}/rest/v1/meli_listings?select=attributes&id=eq.{product_id}"
+                try:
+                    res_get = requests.get(endpoint_select, headers=self.db.headers)
+                    if res_get.ok and res_get.json():
+                        current_attrs = res_get.json()[0].get('attributes') or {}
+                    else:
+                        current_attrs = {}
+                except Exception:
+                    current_attrs = {}
                 
                 # Merge ALL specs from details
                 if details.get('specs'):
@@ -545,8 +561,6 @@ class ProductEnricher:
                 # Add description
                 if details.get('description'):
                     current_attrs['description_long'] = details['description']
-                
-                # Add variations data
                 if details.get('variations_data'):
                     current_attrs['variations_breakdown'] = details['variations_data']
 
@@ -560,7 +574,9 @@ class ProductEnricher:
                 update_data['attributes'] = current_attrs
             
             if update_data:
-                self.db.supabase.table("meli_listings").update(update_data).eq("id", product_id).execute()
+                endpoint = f"{self.db.url}/rest/v1/meli_listings?id=eq.{product_id}"
+                response = requests.patch(endpoint, json=update_data, headers=self.db.headers)
+                response.raise_for_status()
                 
         except Exception as e:
             print(f"    Error updating product: {e}")
@@ -577,7 +593,7 @@ if __name__ == "__main__":
     print("PRODUCT ENRICHER - Background Deep Scraping")
     print("=" * 60)
     print("Batch size:", batch_size)
-    print("Delay: Randomized (7-14s) for speed ⚡")
+    print("Delay: Randomized (7-14s) for speed")
     print("Limit:", limit, "products")
     print("=" * 60)
     

@@ -206,7 +206,17 @@ export const useBrandData = () => {
                     sold_quantity_str: a.meli_listings?.sold_quantity_str,
                     is_full: a.meli_listings?.is_full
                 }));
-                setProducts(fetchedProducts);
+
+                // Deduplicate by meli_id (keep first/latest from desc order)
+                const uniqueProducts: ProductAudit[] = [];
+                const seenIds = new Set();
+                for (const p of fetchedProducts) {
+                    if (!seenIds.has(p.meli_id)) {
+                        seenIds.add(p.meli_id);
+                        uniqueProducts.push(p);
+                    }
+                }
+                setProducts(uniqueProducts);
             }
 
             setStats({
