@@ -148,9 +148,10 @@ export const useBrandData = () => {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            // Cutoff for Stale Records (v6.3 - Anti-Zombie Shield)
-            // Anything processed before 2026-03-31 00:00:00 UTC is ignored
-            const cutoff = '2026-03-30T22:00:00Z'; 
+            // Cutoff for Stale Records (v6.6 - Dynamic Shield)
+            // Filter out items older than 6 hours to hide zombies (which are 10-12 hours old)
+            // but keep the pure audit from minutes ago (467 items).
+            const cutoff = new Date(Date.now() - 6 * 3600000).toISOString(); 
 
             // Obtener datos de cumplimiento con paginación
             let allAuditData: any[] = [];
