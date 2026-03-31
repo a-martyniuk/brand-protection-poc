@@ -89,19 +89,23 @@ async def refresh_audit():
     
     # 4. Batch Update Audit Table
     if audit_records:
-        print(f"Syncing {len(audit_records)} updated audit results to Supabase...")
-        # Since log_compliance_audit uses upsert logic, we can try to use db method if it exists or use requests
-        import json
+        print(f"Syncing {len(audit_records)} updated audit results to Supabase (FORCED UPSERT)...")
         for i in range(0, len(audit_records), 100):
             batch = audit_records[i:i+100]
-            endpoint = f"{db.url}/rest/v1/compliance_audit"
-            # Using Prefer: resolution=merge for upsert behavior
+            # Use on_conflict=listing_id to OVERWRITE existing audit entries
+            endpoint = f"{db.url}/rest/v1/compliance_audit?on_conflict=listing_id"
+            
             headers = db.headers.copy()
-            headers["Prefer"] = "resolution=merge"
+            # OMITTING resolution=merge-duplicates to force OVERWRITE (default in PostgREST is overwrite if not specified)
+            
             try:
-                requests.post(endpoint, json=batch, headers=headers)
+                res = requests.post(endpoint, json=batch, headers=headers)
+                if res.status_code >= 400:
+                    print(f"  [ERROR] Sync Batch {i//100} failed: {res.status_code} - {res.text}")
+                else:
+                    print(f"  [OK] Sync Batch {i//100} complete (Updated {len(batch)} records).")
             except Exception as e:
-                print(f"Error syncing audit records: {e}")
+                print(f"  [CRITICAL] Sync Batch {i//100} exception: {e}")
         
         print("[OK] Audit refresh complete. New scores are now live in the Dashboard.")
     else:

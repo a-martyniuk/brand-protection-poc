@@ -148,7 +148,11 @@ export const useBrandData = () => {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            // Obtener datos de cumplimiento con paginación (evitando límite de 1000 filas)
+            // Cutoff for Stale Records (v6.3 - Anti-Zombie Shield)
+            // Anything processed before 2026-03-31 00:00:00 UTC is ignored
+            const cutoff = '2026-03-30T22:00:00Z'; 
+
+            // Obtener datos de cumplimiento con paginación
             let allAuditData: any[] = [];
             let offset = 0;
             const batchSize = 1000;
@@ -161,6 +165,7 @@ export const useBrandData = () => {
                         meli_listings(*),
                         master_products(*)
                     `)
+                    .gte('processed_at', cutoff) // FORCE REFRESH FILTER
                     .order('processed_at', { ascending: false })
                     .range(offset, offset + batchSize - 1);
 
@@ -172,10 +177,15 @@ export const useBrandData = () => {
                 offset += batchSize;
             }
 
-            // Conteos de estadísticas orientados a Identificación
+            // Conteos de estadísticas orientados a Identificación (Applying cutoff)
             const { count: listingCount } = await supabase.from('meli_listings').select('*', { count: 'exact', head: true });
-            const { count: identifiedCount } = await supabase.from('compliance_audit').select('*', { count: 'exact', head: true }).gt('match_level', 0);
-            const { count: unidentifiedCount } = await supabase.from('compliance_audit').select('*', { count: 'exact', head: true }).eq('match_level', 0);
+            const { count: identifiedCount } = await supabase.from('compliance_audit').select('*', { count: 'exact', head: true })
+                .gt('match_level', 0)
+                .gte('processed_at', cutoff);
+                
+            const { count: unidentifiedCount } = await supabase.from('compliance_audit').select('*', { count: 'exact', head: true })
+                .eq('match_level', 0)
+                .gte('processed_at', cutoff);
             const { count: autoNoiseCount } = await supabase.from('meli_listings').select('*', { count: 'exact', head: true }).eq('item_status', 'noise');
             const { count: manualNoiseCount } = await supabase.from('meli_listings').select('*', { count: 'exact', head: true }).eq('item_status', 'noise_manual');
 

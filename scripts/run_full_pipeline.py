@@ -43,7 +43,7 @@ def main():
     print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     
     steps = [
-        ("CLEANUP DATABASE", [sys.executable, "scripts/cleanup_db.py"]),
+#        ("CLEANUP DATABASE", [sys.executable, "scripts/cleanup_db.py"]),
         ("INGEST MASTER DATA", [sys.executable, "scripts/ingest_master_data.py"]),
         ("SUPER DISCOVERY (PHASE 1)", [sys.executable, "scripts/discover_listings.py"]),
         # Identification uses the enriched data to filter noise immediately

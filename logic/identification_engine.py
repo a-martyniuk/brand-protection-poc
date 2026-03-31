@@ -174,24 +174,65 @@ class IdentificationEngine:
         diff = abs(l_total_kg - expected_total_kg)
         return (diff < (expected_total_kg * VOLUMETRIC_TOLERANCE)), l_total_kg, l_qty
 
-    def _check_hard_exclusions(self, title_lower, category):
-        """Checks if the product should be rejected immediately based on keywords or category."""
-        # 1. Category Exclusion (Strict: ABSOLUTE rejection for known noise categories)
-        norm_category = self.normalize_text(category)
-        for nc in NOISE_CATEGORIES:
-            if nc in norm_category:
-                logger.info(f"  [REJECT] Category absolute exclusion: {nc} (matched in {norm_category})")
-                return True, f"noise_category_strict({nc})"
+    def _check_hard_exclusions(self, title_lower, category, category_id=None, attributes=None):
+        """
+        Checks if the product should be rejected immediately based on metadata.
+        [VERSION: v5.0 - Absolute Metadata Shield]
+        """
+        # 1. Root Category Blocking (ID-based)
+        # MLA3025 (Books, Magazines & Comics)
+        # MLA1168 (Music, Movies & Series)
+        # MLA1144 (Game Consoles)
+        noise_ids = ["MLA3025", "MLA1168", "MLA1144", "MLA409431"] 
+        if category_id and any(nid in str(category_id).upper() for nid in noise_ids):
+            logger.info(f"  [REJECT] Category ID absolute exclusion: {category_id}")
+            return True, f"noise_category_id({category_id})"
 
-        # 2. Keyword Exclusion
+        # 2. Textual Category Blocking (Breadcrumbs)
+        norm_category = self.normalize_text(category)
+        noise_breadcrumb_markers = ["libros", "revistas", "comics", "música", "musica", "películas", "peliculas", "series", "juegos", "juguetes", "literatura", "bibliografico", "bibliografia", "ficcion", "ingenieria"]
+        for marker in noise_breadcrumb_markers:
+            if marker in norm_category:
+                logger.info(f"  [REJECT] Category marker exclusion: {marker} (matched in {norm_category})")
+                return True, f"noise_category_marker({marker})"
+
+        # 3. Attribute Blocking (Authorship/Editorial/Bibliographic)
+        if attributes:
+            # We look for forbidden keys or values indicating a book/media
+            noise_attrs = ["autor", "editorial", "isbn", "genero", "cantautor", "formato", "edicion"]
+            for key, val in attributes.items():
+                k_norm = self.normalize_text(key)
+                if any(na in k_norm for na in noise_attrs):
+                    # Exception: if the value is one of our brands (unlikely for Autor, but for safety)
+                    v_norm = self.normalize_text(str(val))
+                    if not any(b in v_norm for b in NUTRICIA_BRANDS):
+                        logger.info(f"  [REJECT] Bibliographic attribute detected: {key}={val}")
+                        return True, f"bibliographic_attribute({key})"
+
+        # 4. Scope & Noise Blocking (Food, Supplies, Furniture - USER REQUESTED EXCLUSIONS)
+        scope_noise_markers = [
+            "fideos", "pasta", "sustituto", "arroz", "galletas", "huevo loprofin", # Loprofin food
+            "guia", "set de", "bomba", "infinity", "enteral", "infusion", # Flocare supplies
+            "escritorio", "gamer", "rgb", "leas", "mesa", "silla" # GMPro furniture
+        ]
+        if any(sn in title_lower for sn in scope_noise_markers):
+             logger.info(f"  [REJECT] Out-of-scope product type detected: {title_lower}")
+             return True, "out_of_scope_product_type"
+
+        # 5. Strict Title Noise Detection (REJECT REGARDLESS OF BRAND)
+        strict_noise_markers = ["libro", "tomo", "edicion", "editorial", "novela", "manual", "cd ", "disco", "contabilidad", "contable", "poesia", "verso", "facultad", "universidad", "tratado"]
+        if any(sn in title_lower for sn in strict_noise_markers):
+            # Special case for Fortini: Check for common author markers
+            if "fortini" in title_lower and any(name in title_lower for name in ["franco", "annalisa", "ignacio", "padre"]):
+                logger.info(f"  [REJECT] Author (not product) detected in title: {title_lower}")
+                return True, "strict_noise_author_match"
+
+            logger.info(f"  [REJECT] Strict title noise detected: {title_lower}")
+            return True, "strict_noise_title"
+
+        # 5. General Keyword Exclusion (Conditional on brand NOT being present)
         for kw in EXCLUSION_KEYWORDS:
             if kw in title_lower:
-                # Exempt Nutricia brands from general keyword exclusions (like 'farmacia')
-                # EXCEPT for explicit noise markers (books, editions, etc)
-                is_strict_noise = any(sn in kw for sn in ["libro", "tomo", "edicion", "editorial", "novela", "manual", "cd ", "disco"])
-                if is_strict_noise:
-                    return True, f"exclusion_keyword_strict({kw})"
-                    
                 if not any(b in title_lower for b in NUTRICIA_BRANDS):
                     return True, f"exclusion_keyword({kw})"
         
@@ -220,7 +261,8 @@ class IdentificationEngine:
         l_brand = self._detect_brand(title_lower, attr_brand)
 
         # 1. Hard Exclusions (Restored for noise reduction)
-        is_noise, reason = self._check_hard_exclusions(title_lower, category)
+        category_id = listing_attrs.get("category_id")
+        is_noise, reason = self._check_hard_exclusions(title_lower, category, category_id, listing_attrs)
         if is_noise:
             return 0, 0, l_brand
 
@@ -273,7 +315,9 @@ class IdentificationEngine:
         
         # 0. Early Noise Detection
         listing_category = listing.get("category_name") or listing.get("category") or ""
-        is_noise, reason = self._check_hard_exclusions(listing_title_norm, listing_category)
+        listing_category_id = listing.get("category_id")
+        listing_attrs = listing.get("attributes") or {}
+        is_noise, reason = self._check_hard_exclusions(listing_title_norm, listing_category, listing_category_id, listing_attrs)
         if is_noise:
             logger.info(f"  [REJECT] Early noise detection: {listing_title_norm} ({reason})")
             return self.generate_audit_report(listing, None, 0)
