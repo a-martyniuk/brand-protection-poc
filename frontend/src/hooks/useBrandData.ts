@@ -226,7 +226,8 @@ export const useBrandData = () => {
                     is_official_store: a.meli_listings?.is_official_store,
                     sold_quantity_str: a.meli_listings?.sold_quantity_str,
                     is_full: a.meli_listings?.is_full,
-                    processed_at: a.processed_at
+                    processed_at: a.processed_at,
+                    noise_reason: a.noise_reason
                 }));
 
                 for (const p of fetchedProducts) {

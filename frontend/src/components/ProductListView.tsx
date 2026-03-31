@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, ExternalLink, Trash2, RotateCcw, Search } from 'lucide-react';
+import { ChevronDown, ChevronUp, ExternalLink, Trash2, RotateCcw, Search, Database } from 'lucide-react';
 import { ProductAudit, MatchFilter } from '../types';
 import ProductDetailPanel from './ProductDetailPanel';
 
@@ -243,9 +243,35 @@ const ProductListView: React.FC<ProductListViewProps> = ({ products, loading, on
                                     </div>
                                 </div>
 
-                                {/* Match Level */}
-                                <div className="flex justify-center">
-                                    {getMatchBadge(product.match_level)}
+                                {/* Info de Clasificación (v7.2 - Noise Transparency) */}
+                                <div className="flex flex-col items-center gap-1">
+                                    {viewMode === 'NOISE' ? (
+                                        <>
+                                            {(() => {
+                                                const reason = (product.noise_reason || '').toLowerCase();
+                                                let label = 'Ruido Gral.';
+                                                let Icon: any = Database;
+                                                let color = 'bg-slate-600/20 text-slate-400 border-slate-700/50';
+
+                                                if (reason.includes('category')) { label = 'Categoría'; color = 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30'; }
+                                                else if (reason.includes('bibliographic') || reason.includes('author')) { label = 'Autor/Ed.'; color = 'bg-purple-500/20 text-purple-400 border-purple-500/30'; }
+                                                else if (reason.includes('scope')) { label = 'Fuera Alcance'; color = 'bg-pink-500/20 text-pink-400 border-pink-500/30'; }
+                                                else if (reason.includes('manual')) { label = 'Manual'; color = 'bg-amber-500/20 text-amber-400 border-amber-500/30'; }
+                                                else if (reason.includes('keyword')) { label = 'Keyword'; color = 'bg-sky-500/20 text-sky-400 border-sky-500/30'; }
+
+                                                return (
+                                                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-tighter border ${color}`}>
+                                                        {label}
+                                                    </span>
+                                                );
+                                            })()}
+                                            <span className="text-[8px] text-slate-500 font-bold whitespace-nowrap">
+                                                {product.processed_at ? new Date(product.processed_at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                                            </span>
+                                        </>
+                                    ) : (
+                                        getMatchBadge(product.match_level)
+                                    )}
                                 </div>
 
                                 {/* Acciones */}

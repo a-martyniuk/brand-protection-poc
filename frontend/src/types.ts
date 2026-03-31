@@ -63,6 +63,7 @@ export interface ProductAudit {
     // Detalles raw de violaciones para depuración
     violation_details?: any;
     processed_at?: string;
+    noise_reason?: string;
 }
 
 export interface DashboardStats {
