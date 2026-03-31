@@ -70,3 +70,38 @@ class SupabaseLite:
         except Exception as e:
             print(f"Error fetching master products (Lite): {e}")
             return []
+
+    def upsert_compliance_audit(self, audit_records):
+        """
+        Upserts audit results into 'compliance_audit' table using 'listing_id' as the conflict key.
+        Includes retry logic for robustness against batch failures.
+        """
+        if not audit_records:
+            return True
+            
+        endpoint = f"{self.url}/rest/v1/compliance_audit?on_conflict=listing_id"
+        headers = self.headers.copy()
+        headers["Prefer"] = "resolution=merge-duplicates"
+        
+        try:
+            response = requests.post(endpoint, json=audit_records, headers=headers)
+            response.raise_for_status()
+            return True
+        except Exception as e:
+            status_code = getattr(e.response, 'status_code', 500) if hasattr(e, 'response') else 500
+            
+            if status_code >= 400:
+                print(f"  [RETRY] Batch audit upsert failed ({status_code}). Retrying item by item...")
+                success_count = 0
+                for item in audit_records:
+                    try:
+                        res = requests.post(endpoint, json=item, headers=headers)
+                        res.raise_for_status()
+                        success_count += 1
+                    except:
+                        pass
+                print(f"  - Rescued {success_count}/{len(audit_records)} audit records.")
+                return success_count > 0
+            
+            print(f"Unexpected error in audit upsert: {e}")
+            return False

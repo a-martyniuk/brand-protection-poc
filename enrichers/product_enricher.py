@@ -214,18 +214,31 @@ class ProductEnricher:
     def get_products_to_enrich(self, limit=None):
         """Get products that need enrichment using SupabaseLite (requests)."""
         try:
-            # Fetch products matched in compliance_audit where ean or brand or seller is missing
-            # Only target items that passed the audit (item_status = active)
-            endpoint = f"{self.db.url}/rest/v1/meli_listings?select=*&item_status=eq.active"
-            # Prioritize those missing critical audit data
-            endpoint += "&or=(ean_published.is.null,brand_detected.is.null,seller_name.is.null)"
+            # Fetch all listings that have been MATCHED to a master product (exclude Noise)
+            # We want to re-verify stock for EVERY matched product in the browser for maximum accuracy,
+            # so we remove the filter that checks for missing data.
+            endpoint = f"{self.db.url}/rest/v1/compliance_audit?select=master_product_id,meli_listings!inner(*)&master_product_id=not.is.null"
+            
+            # Additional filter to ensure we only look at active listings
+            endpoint += "&meli_listings.item_status=eq.active"
             
             if limit:
                 endpoint += f"&limit={limit}"
                 
             response = requests.get(endpoint, headers=self.db.headers)
             response.raise_for_status()
-            all_products = response.json()
+            audit_data = response.json()
+            
+            # Flatten the results: from { master_product_id, meli_listings: { ... } } to { ...listing }
+            all_products = []
+            seen_ids = set()
+            for entry in audit_data:
+                listing = entry.get("meli_listings")
+                if listing and listing.get("id") not in seen_ids:
+                    # Inject master_product_id back into the listing for reference if needed
+                    listing["master_product_id"] = entry.get("master_product_id")
+                    all_products.append(listing)
+                    seen_ids.add(listing.get("id"))
             
             # Sort locally by last_enriched_at (nulls first -> oldest enriched first)
             all_products.sort(key=lambda x: x.get("last_enriched_at") or "1970-01-01T00:00:00")

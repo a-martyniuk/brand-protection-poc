@@ -90,24 +90,14 @@ async def refresh_audit():
     # 4. Batch Update Audit Table
     if audit_records:
         print(f"Syncing {len(audit_records)} updated audit results to Supabase (FORCED UPSERT)...")
-        for i in range(0, len(audit_records), 100):
-            batch = audit_records[i:i+100]
-            # Use on_conflict=listing_id to OVERWRITE existing audit entries
-            endpoint = f"{db.url}/rest/v1/compliance_audit?on_conflict=listing_id"
-            
-            headers = db.headers.copy()
-            # OMITTING resolution=merge-duplicates to force OVERWRITE (default in PostgREST is overwrite if not specified)
-            
-            try:
-                res = requests.post(endpoint, json=batch, headers=headers)
-                if res.status_code >= 400:
-                    print(f"  [ERROR] Sync Batch {i//100} failed: {res.status_code} - {res.text}")
-                else:
-                    print(f"  [OK] Sync Batch {i//100} complete (Updated {len(batch)} records).")
-            except Exception as e:
-                print(f"  [CRITICAL] Sync Batch {i//100} exception: {e}")
+        # Use centralized upsert method in SupabaseLite
+        # This correctly handles the conflict on 'listing_id' and applies 'resolution=merge-duplicates'
+        success = db.upsert_compliance_audit(audit_records)
         
-        print("[OK] Audit refresh complete. New scores are now live in the Dashboard.")
+        if success:
+            print("[OK] Audit refresh complete. New scores are now live in the Dashboard.")
+        else:
+            print("[ERROR] Audit Sync failed. Check logs for details.")
     else:
         print("No listings found to audit.")
 
