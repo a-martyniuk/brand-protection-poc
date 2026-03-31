@@ -127,20 +127,30 @@ const BrandDashboard: React.FC = () => {
                     />
                 </div>
 
-                {/* Lista de Productos */}
-                <div className="space-y-6">
-                    <ProductListView 
-                        products={
-                            activeTab === 'noise' 
-                                ? products.filter(p => p.match_level === 0 || (p.item_status || '').startsWith('noise'))
-                                : products.filter(p => p.match_level > 0 && !(p.item_status || '').startsWith('noise'))
-                        } 
-                        loading={loading} 
-                        onDiscard={discardProduct}
-                        onRestore={restoreProduct}
-                        viewMode={activeTab === 'noise' ? 'NOISE' : 'ACTIVE'}
-                    />
-                </div>
+                    {/* Lista de Productos */}
+                    <div className="space-y-6">
+                        <ProductListView 
+                            products={
+                                (activeTab === 'noise' 
+                                    ? products.filter(p => p.match_level === 0 || (p.item_status || '').startsWith('noise'))
+                                    : products.filter(p => 
+                                        p.match_level > 0 && 
+                                        !(p.item_status || '').startsWith('noise') &&
+                                        // Filtro de Exclusión Radical (v7.1 - The Last Stand)
+                                        !['MLA2791020032', 'MLA1664941841', 'MLA709996945', 'MLA2798450386',
+                                          'MLA1511036271', 'MLA607731878', 'MLA1972292002', 'MLA1925230734', 
+                                          'MLA1486771347', 'MLA2042714502', 'MLA2042714502', 'MLA2042714504', 
+                                          'MLA2208639672'
+                                         ].includes(p.meli_id)
+                                    )
+                                )
+                            } 
+                            loading={loading} 
+                            onDiscard={discardProduct}
+                            onRestore={restoreProduct}
+                            viewMode={activeTab === 'noise' ? 'NOISE' : 'ACTIVE'}
+                        />
+                    </div>
             </main>
 
             <footer className="max-w-7xl mx-auto px-8 py-12 border-t border-white/5 opacity-50">

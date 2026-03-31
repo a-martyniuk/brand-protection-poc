@@ -191,6 +191,15 @@ export const useBrandData = () => {
             const { count: autoNoiseCount } = await supabase.from('meli_listings').select('*', { count: 'exact', head: true }).eq('item_status', 'noise');
             const { count: manualNoiseCount } = await supabase.from('meli_listings').select('*', { count: 'exact', head: true }).eq('item_status', 'noise_manual');
 
+            // Filtro de Exclusión Radical en Estadísticas (v7.1 - The Last Stand)
+            const STRICT_NOISE_IDS = [
+                'MLA2791020032', 'MLA1664941841', 'MLA709996945', 'MLA2798450386',
+                'MLA1511036271', 'MLA607731878', 'MLA1972292002', 'MLA1925230734', 
+                'MLA1486771347', 'MLA2042714502', 'MLA2042714504', 'MLA2208639672'
+            ];
+
+            const uniqueProducts: ProductAudit[] = [];
+            const seenIds = new Set();
             if (allAuditData) {
                 const fetchedProducts: ProductAudit[] = allAuditData.map((a: any) => ({
                     id: a.id,
@@ -216,12 +225,10 @@ export const useBrandData = () => {
                     category_name: a.meli_listings?.category_name,
                     is_official_store: a.meli_listings?.is_official_store,
                     sold_quantity_str: a.meli_listings?.sold_quantity_str,
-                    is_full: a.meli_listings?.is_full
+                    is_full: a.meli_listings?.is_full,
+                    processed_at: a.processed_at
                 }));
 
-                // Deduplicate by meli_id (keep first/latest from desc order)
-                const uniqueProducts: ProductAudit[] = [];
-                const seenIds = new Set();
                 for (const p of fetchedProducts) {
                     if (!seenIds.has(p.meli_id)) {
                         seenIds.add(p.meli_id);
@@ -231,14 +238,19 @@ export const useBrandData = () => {
                 setProducts(uniqueProducts);
             }
 
+            // Calculamos el conteo real basado en la vista (match > 0 y no blacklisted)
+            const pureActiveCount = uniqueProducts.filter(p => 
+                p.match_level > 0 && !STRICT_NOISE_IDS.includes(p.meli_id)
+            ).length;
+
             setStats({
                 scanned: listingCount || 0,
-                active: identifiedCount || 0, 
-                cleaned: autoNoiseCount || 0, // Ruido automático
+                active: pureActiveCount, 
+                cleaned: (autoNoiseCount || 0) + (uniqueProducts.length - pureActiveCount), // Sumamos los ocultados por blacklist
                 high_risk: 0,
                 medium_risk: 0,
-                low_risk: manualNoiseCount || 0, // Filtrado manual
-                last_audit: allAuditData?.[0]?.processed_at
+                low_risk: manualNoiseCount || 0,
+                last_audit: uniqueProducts?.[0]?.processed_at
             });
 
             await fetchEnrichmentStats();
