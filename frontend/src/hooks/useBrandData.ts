@@ -148,10 +148,11 @@ export const useBrandData = () => {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            // Cutoff for Stale Records (v6.6 - Dynamic Shield)
-            // Filter out items older than 6 hours to hide zombies (which are 10-12 hours old)
-            // but keep the pure audit from minutes ago (467 items).
-            const cutoff = new Date(Date.now() - 6 * 3600000).toISOString(); 
+            // Cutoff for Stale Records (v6.8 - Safe 48h Window)
+            // We have manually deactivated zombies to match_level 0, so any record
+            // in this window with match_level > 0 is legitimate (467 items).
+            const cutoff = new Date(Date.now() - 48 * 3600000).toISOString(); 
+            // In fact, since we cleaned the DB, we could even remove this, but we keep it for health.
 
             // Obtener datos de cumplimiento con paginación
             let allAuditData: any[] = [];
