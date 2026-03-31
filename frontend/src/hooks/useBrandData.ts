@@ -273,13 +273,17 @@ export const useBrandData = () => {
 
     const discardProduct = async (meliId: string) => {
         try {
-            // Actualizar Supabase
-            const { error } = await supabase
-                .from('meli_listings')
-                .update({ item_status: 'noise_manual' })
-                .eq('meli_id', meliId);
-
-            if (error) throw error;
+            // Actualizar Supabase (Lista y Auditoría para trazabilidad)
+            await Promise.all([
+                supabase
+                    .from('meli_listings')
+                    .update({ item_status: 'noise_manual' })
+                    .eq('meli_id', meliId),
+                supabase
+                    .from('compliance_audit')
+                    .update({ noise_reason: 'noise_manual', match_level: 0 })
+                    .eq('meli_id', meliId)
+            ]);
 
             // Actualizar estado local inmediatamente para UI responsiva
             setProducts(prev => prev.filter(p => p.meli_id !== meliId));
