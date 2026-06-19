@@ -95,6 +95,22 @@ async def refresh_audit():
         success = db.upsert_compliance_audit(audit_records)
         
         if success:
+            # Calculate Summary for the user to compare with Dashboard
+            high = len([a for a in audit_records if a["match_level"] == 1])
+            mid = len([a for a in audit_records if a["match_level"] == 2])
+            low = len([a for a in audit_records if a["match_level"] == 3])
+            noise = len(noise_ids)
+            
+            print("\n" + "="*40)
+            print("📊 AUDIT SUMMARY")
+            print("="*40)
+            print(f"✅ Matched High (Exact): {high}")
+            print(f"⚠️ Matched Mid (Fuzzy): {mid}")
+            print(f"🔍 Matched Low (Partial): {low}")
+            print(f"🧹 Noise (Discarded): {noise}")
+            print("-" * 40)
+            print(f"📈 Total Active: {high + mid + low}")
+            print("="*40)
             print("[OK] Audit refresh complete. New scores are now live in the Dashboard.")
         else:
             print("[ERROR] Audit Sync failed. Check logs for details.")

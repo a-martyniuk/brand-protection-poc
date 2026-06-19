@@ -2,6 +2,10 @@ import os
 import json
 import requests
 import sys
+
+# Add project root to path
+sys.path.append(os.getcwd())
+
 from datetime import datetime
 from logic.supabase_lite import SupabaseLite
 import time

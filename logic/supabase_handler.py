@@ -15,16 +15,23 @@ class SupabaseHandler:
     def clear_all_data(self):
         """
         Deletes all data from 'compliance_audit' and 'meli_listings' tables.
+        Ensures a completely fresh start for the monthly pipeline.
         """
         try:
-            print("Clearing 'compliance_audit' table...")
-            self.supabase.table("compliance_audit").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
-            print("Clearing 'meli_listings' table...")
-            self.supabase.table("meli_listings").delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
-            print("Database reset successful.")
+            print("🧹 [PHASE 0] Starting deep database reset...")
+            
+            # Delete compliance_audit first (due to foreign key dependencies)
+            print("  - Purging 'compliance_audit'...")
+            self.supabase.table("compliance_audit").delete().neq("match_level", -1).execute()
+            
+            # Delete meli_listings
+            print("  - Purging 'meli_listings'...")
+            self.supabase.table("meli_listings").delete().neq("price", -1).execute()
+            
+            print("✅ Database reset successful (Absolute Zero).")
             return True
         except Exception as e:
-            print(f"Error clearing data: {e}")
+            print(f"❌ Error during database reset: {e}")
             return False
 
     def upsert_master_products(self, products_data):

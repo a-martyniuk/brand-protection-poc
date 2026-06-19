@@ -74,10 +74,6 @@ async def run_pipeline():
     # 6. FINAL RE-AUDIT (Score Update)
     print("\n🔄 PHASE 6: Final Audit Refresh (Incorporating Enriched Data)...")
     subprocess.run([sys.executable, "refresh_audit.py"])
-    
-    # 7. FINAL NOISE PURGE
-    print("\n🧹 PHASE 7: Final Noise Purge (Database Cleanup)...")
-    subprocess.run([sys.executable, "cleanup_unrelated_noise.py"])
 
     print("\n" + "=" * 60)
     print("✅ MASTER PIPELINE EXECUTION COMPLETE")

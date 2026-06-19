@@ -199,7 +199,9 @@ class IdentificationEngine:
         # 3. Attribute Blocking (Authorship/Editorial/Bibliographic)
         if attributes:
             # We look for forbidden keys or values indicating a book/media
-            noise_attrs = ["autor", "editorial", "isbn", "genero", "cantautor", "formato", "edicion"]
+            # Modified: Removed 'formato' and 'edicion' as they are common in food/supplements
+            # (e.g. "Formato del suplemento: Polvo", "Formato de venta: Unidad")
+            noise_attrs = ["autor", "editorial", "isbn", "genero", "cantautor"]
             for key, val in attributes.items():
                 k_norm = self.normalize_text(key)
                 if any(na in k_norm for na in noise_attrs):
@@ -209,10 +211,10 @@ class IdentificationEngine:
                         logger.info(f"  [REJECT] Bibliographic attribute detected: {key}={val}")
                         return True, f"bibliographic_attribute({key})"
 
-        # 4. Scope & Noise Blocking (Food, Supplies, Furniture - USER REQUESTED EXCLUSIONS)
+        # Adjusted: Removed Flocare markers (guia, bomba, infinity, enteral, infusion) 
+        # to ensure Nutricia medical devices/supplies are also identified.
         scope_noise_markers = [
             "fideos", "pasta", "sustituto", "arroz", "galletas", "huevo loprofin", # Loprofin food
-            "guia", "set de", "bomba", "infinity", "enteral", "infusion", # Flocare supplies
             "escritorio", "gamer", "rgb", "leas", "mesa", "silla" # GMPro furniture
         ]
         if any(sn in title_lower for sn in scope_noise_markers):
@@ -560,6 +562,8 @@ class IdentificationEngine:
         }
 
     def get_risk_level(self, score):
+        if score >= 80: return "Alto"
+        if score >= 40: return "Medio"
         return "Bajo"
 
     def map_violation_to_bpp_reason(self, audit_details):
