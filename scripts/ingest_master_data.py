@@ -26,6 +26,12 @@ def clean_decimal(val):
 def ingest_data(file_path):
     print(f"Reading {file_path}...")
     df = pd.read_excel(file_path)
+    
+    # Remove duplicate EANs (PostgreSQL UNIQUE constraint requires unique EAN values)
+    if 'EAN' in df.columns:
+        initial_len = len(df)
+        df = df.drop_duplicates(subset=['EAN'], keep='first')
+        print(f"  - Removed {initial_len - len(df)} duplicate EAN rows to avoid Supabase unique constraint violations.")
 
     # Normalize column names for easier access if needed, but we'll specific mapping
     records = []
